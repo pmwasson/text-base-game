@@ -5,7 +5,8 @@
 ;
 ; Tile based game
 ; Uses page flipping to remove flicker
-;
+; Animated water
+; Idle animation (blinking)
 
 ;------------------------------------------------
 ; Constants
@@ -54,6 +55,9 @@ mapPtr1     :=  $55
 
 gameLoop:
 	inc 	gameTime
+	bne		:+
+	inc 	gameTimeHi
+:	
 	jsr		draw_map
 
 commandLoop:	
@@ -126,6 +130,14 @@ commandLoop:
     jmp		MONZ
 :
 
+    ;------------------
+    ; Time-out
+    ;------------------
+    cmp     #0
+    bne     :+
+    jmp     gameLoop
+:
+
 	jmp		commandLoop
 
 .endproc
@@ -135,12 +147,29 @@ commandLoop:
 ;-----------------------------------------------------------------------------
 ; get_key
 ;-----------------------------------------------------------------------------
+; Return key with bit 7 set, or zero if timeout
+;
 
 .proc get_key
 
+	ldx		#0
+	ldy 	#$E0
+	
 waitForKey:
 	lda		KBD
-	bpl		waitForKey
+	bmi		gotKey
+
+	inx
+	bne 	waitForKey
+
+	iny
+	bne 	waitForKey
+
+	; exit with no key after timeout
+	lda 	#0
+	rts
+
+gotKey:	
 	sta		KBDSTRB
 	rts
 .endproc
@@ -226,10 +255,19 @@ loopx:
 	sta 	tileX
 	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
 	sta 	tileY
+
+
+	lda 	gameTime
+	and 	#$3f
+	beq		:+
 	lda 	#13
 	jsr 	draw_tile
+	jmp 	flipPage
+:
+	lda 	#14
+	jsr 	draw_tile
 
-
+flipPage:
 	; flip page
 	ldx 	PAGE2
 	bmi 	flipToPage1
@@ -364,6 +402,7 @@ temp:		.byte   0
 
 drawPage:	.byte   0 	; should be either 0 or 4
 gameTime:   .byte   0   ; +1 every turn
+gameTimeHi: .byte   0   ; upper byte
 tileX:		.byte 	0
 tileY:		.byte 	0
 mapX:	    .byte 	0
@@ -497,7 +536,7 @@ tileSheet:
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
 	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-    .byte   1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
+    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
 ; boardwalk (horizontal)
 	.byte 	$df,$df,$df,$df,$df,$df,$df,$df		; ________  
@@ -574,6 +613,15 @@ tileSheet:
 ; player
 	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
 	.byte 	$00,$00,$a8,$ef,$ef,$a9,$00,$00     ;   (oo)
+	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
+	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
+	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
+	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; player (blink)
+	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
+	.byte 	$00,$00,$a8,$ad,$ad,$a9,$00,$00     ;   (--)
 	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
 	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
 	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
