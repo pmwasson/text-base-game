@@ -74,7 +74,7 @@ mapPtr1     :=  $55
 	jsr     HOME
 
 	; Allow other characters
-	sta 	ALTCHARSETON
+	; sta 	ALTCHARSETON
 
 	; set-up screen
 	jsr		fill_screen
@@ -373,11 +373,7 @@ tileY:		.byte 	0
 mapX:	    .byte 	0
 mapY:	    .byte 	0
 
-mapCache:	
-			.byte 	0,0,0,0,0
-			.byte 	0,0,0,0,0
-			.byte 	0,0,0,0,0
-			.byte 	0,0,0,0,0
+mapCache:	.res 	SCREEN_WIDTH*SCREEN_HEIGHT
 
 ; Data
 ;-----------------------------------------------------------------------------
