@@ -3,38 +3,9 @@
 ;-----------------------------------------------------------------------------
 ; Entry for text game contest
 ;
-; Use text-base sprites
+; Tile based game
+; Uses page flipping to remove flicker
 ;
-;
-; Screen Layout:
-;
-;  00  ########################################
-;  01  #                                      # 
-;  02  ########################################
-;  03  [------][------][------][------][------]
-;  04  [      ][      ][      ][      ][      ]
-;  05  [      ][      ][      ][      ][      ]
-;  06  [      ][      ][      ][      ][      ]
-;  07  [      ][      ][      ][      ][      ]
-;  08  [------][------][------][------][------]
-;  09  [------][------][------][------][------]
-;  10  [      ][      ][      ][      ][      ]
-;  11  [      ][      ][  :)  ][      ][      ]
-;  12  [      ][      ][      ][      ][      ]
-;  13  [      ][      ][      ][      ][      ]
-;  14  [------][------][------][------][------]
-;  15  [------][------][------][------][------]
-;  16  [      ][      ][      ][      ][      ]
-;  17  [      ][      ][      ][      ][      ]
-;  18  [      ][      ][      ][      ][      ]
-;  19  [      ][      ][      ][      ][      ]
-;  20  [------][------][------][------][------]
-;  21  ########################################
-;  22  #                                      # 
-;  23  ########################################
-;
-;  8x6 tiles with top/bottom boarders
-
 
 ;------------------------------------------------
 ; Constants
@@ -70,15 +41,9 @@ mapPtr1     :=  $55
 
 
 .proc main
-	; clear screen
-	jsr     HOME
 
-	; Allow other characters
-	; sta 	ALTCHARSETON
-
-	; set-up screen
-	jsr		fill_screen
-	jsr		draw_boarders
+	; Since draw-map draws the whole screen,
+	; no need to clear screen at startup
 
 	; set starting position
 	lda 	#(MAP_WIDTH-SCREEN_WIDTH)/2
@@ -88,12 +53,11 @@ mapPtr1     :=  $55
 
 
 gameLoop:
+	inc 	gameTime
 	jsr		draw_map
 
-waitForKey:
-	lda		KBD
-	bpl		waitForKey
-	sta		KBDSTRB
+commandLoop:	
+	jsr 	get_key
 
     ;------------------
     ; W = Up
@@ -102,7 +66,7 @@ waitForKey:
     bne     :+
     ldx 	#CACHE_UP
     lda 	mapCache,x
-    bne		waitForKey
+    bne		commandLoop
     dec 	mapY
     jmp     gameLoop
 :
@@ -114,7 +78,7 @@ waitForKey:
     bne     :+
     ldx 	#CACHE_DOWN
     lda 	mapCache,x
-    bne		waitForKey
+    bne		commandLoop
     inc 	mapY
     jmp     gameLoop
 :
@@ -126,7 +90,7 @@ waitForKey:
     bne     :+
     ldx 	#CACHE_LEFT
     lda 	mapCache,x
-    bne		waitForKey
+    bne		commandLoop
     dec 	mapX
     jmp     gameLoop
 :
@@ -138,8 +102,16 @@ waitForKey:
     bne     :+
     ldx 	#CACHE_RIGHT
     lda 	mapCache,x
-    bne		waitForKey
+    bne		commandLoop
     inc 	mapX
+    jmp     gameLoop
+:
+
+    ;------------------
+    ; Space = wait
+    ;------------------
+    cmp     #$A0
+    bne     :+
     jmp     gameLoop
 :
 
@@ -148,13 +120,30 @@ waitForKey:
     ;------------------
     cmp     #$9B
     bne     :+
+    lda 	#23
+    sta  	CV 			; Make sure cursor is on the bottom row 		
+    sta     LOWSCR 		; Make sure exit onto screen 1
     jmp		MONZ
 :
 
-	jmp		waitForKey
+	jmp		commandLoop
 
 .endproc
 
+
+
+;-----------------------------------------------------------------------------
+; get_key
+;-----------------------------------------------------------------------------
+
+.proc get_key
+
+waitForKey:
+	lda		KBD
+	bpl		waitForKey
+	sta		KBDSTRB
+	rts
+.endproc
 
 
 ;-----------------------------------------------------------------------------
@@ -162,6 +151,14 @@ waitForKey:
 ;-----------------------------------------------------------------------------
 
 .proc draw_map
+
+	; set page offset
+	lda 	#0		; if showing page 2, draw on page 1
+	ldx 	PAGE2
+	bmi 	pageSelect
+	lda 	#4		; displaying page 1, draw on page 2
+pageSelect:
+	sta 	drawPage
 
 	lda 	#SCREEN_OFFSET
 	sta		tileY
@@ -232,6 +229,15 @@ loopx:
 	lda 	#13
 	jsr 	draw_tile
 
+
+	; flip page
+	ldx 	PAGE2
+	bmi 	flipToPage1
+	sta 	HISCR
+	rts
+
+flipToPage1:
+	sta 	LOWSCR
 	rts
 
 index: 		.byte 	0
@@ -261,27 +267,6 @@ loop:
 .endproc
 
 ;-----------------------------------------------------------------------------
-; draw_boarders
-;-----------------------------------------------------------------------------
-.proc draw_boarders
-	ldx		#0
-loop:
-	lda 	#$20
-	sta		$0400,x 			; row 0
-	sta		$0500,x 			; row 2
-	sta		$06D0,x 			; row 21
-	sta		$07D0,x 			; row 23
-	lda 	#$2D
-	sta		$0480,x 			; row 1
-	sta		$0750,x 			; row 22
-	inx
-	cpx		#40
-	bne 	loop
-	rts
-.endproc
-
-
-;-----------------------------------------------------------------------------
 ; draw_tile
 ;-----------------------------------------------------------------------------
 ; Tiles are 48 bytes, but pad to 64 so no page crossings
@@ -309,6 +294,14 @@ loop:
     adc     tilePtr1
     sta     tilePtr1
 
+    ; check if animated
+    ldy 	#48+1
+    lda 	(tilePtr0),y
+    and 	gameTime
+    beq 	notAnimated
+    inc 	tilePtr1 		; use alternate tile!  +4
+
+notAnimated:
     ; copy tileY
     lda 	tileY
     sta		temp
@@ -324,6 +317,7 @@ loopy:
     adc     lineOffset,y    ; + lineOffset
     sta     screenPtr0    
     lda     linePage,y
+    adc 	drawPage 		; previous carry should be clear
     sta     screenPtr1
 
 	; set 8 bytes
@@ -368,6 +362,8 @@ temp:		.byte   0
 ; Globals
 ;-----------------------------------------------------------------------------
 
+drawPage:	.byte   0 	; should be either 0 or 4
+gameTime:   .byte   0   ; +1 every turn
 tileX:		.byte 	0
 tileY:		.byte 	0
 mapX:	    .byte 	0
@@ -501,7 +497,7 @@ tileSheet:
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
 	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
 ; boardwalk (horizontal)
 	.byte 	$df,$df,$df,$df,$df,$df,$df,$df		; ________  
@@ -530,14 +526,14 @@ tileSheet:
 	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; water (alternate)
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
+    .byte   1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
 ; blank
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
