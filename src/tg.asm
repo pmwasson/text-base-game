@@ -3,7 +3,7 @@
 ;-----------------------------------------------------------------------------
 ; Entry for text game contest
 ;
-; Use text-base sprite and page flipping
+; Use text-base sprites
 ;
 ;
 ; Screen Layout:
@@ -19,7 +19,7 @@
 ;  08  [------][------][------][------][------]
 ;  09  [------][------][------][------][------]
 ;  10  [      ][      ][      ][      ][      ]
-;  11  [      ][      ][      ][      ][      ]
+;  11  [      ][      ][  :)  ][      ][      ]
 ;  12  [      ][      ][      ][      ][      ]
 ;  13  [      ][      ][      ][      ][      ]
 ;  14  [------][------][------][------][------]
@@ -88,7 +88,6 @@ mapPtr1     :=  $55
 
 
 gameLoop:
-
 	jsr		draw_map
 
 waitForKey:
@@ -230,7 +229,7 @@ loopx:
 	sta 	tileX
 	lda 	#3+TILE_HEIGHT*1
 	sta 	tileY
-	lda 	#9
+	lda 	#13
 	jsr 	draw_tile
 
 	rts
@@ -449,10 +448,10 @@ map:
 	.byte 	2,2,1,5,5,5,5,5,5,5,5,6,0,0,2,2
 	.byte 	3,2,1,1,4,1,3,1,0,0,0,1,0,1,3,2
 	.byte 	2,2,1,1,4,1,1,1,0,0,0,1,0,1,2,2
-	.byte 	2,3,1,1,4,0,0,0,0,0,1,1,3,2,2,2
-	.byte 	2,2,1,1,4,1,1,0,0,0,1,1,1,1,2,2
-	.byte 	2,2,0,0,4,1,1,1,0,0,0,1,1,1,3,2
-	.byte 	2,3,0,4,4,1,1,1,0,0,0,1,0,1,2,2
+	.byte 	2,3,1,1,4,0,0,0,0,0,1,1,3,7,2,2
+	.byte 	2,2,1,1,4,1,1,0,0,0,1,1,7,7,2,2
+	.byte 	2,2,0,0,4,1,1,1,0,0,0,7,7,1,3,2
+	.byte 	2,3,0,4,4,1,1,1,0,0,0,7,1,0,2,2
 	.byte 	2,3,4,4,1,1,3,1,0,1,2,3,0,0,2,3
 	.byte 	2,3,4,0,1,3,1,0,1,2,1,1,2,2,2,2
 	.byte 	2,2,4,1,3,1,1,0,1,1,1,1,1,1,2,2
@@ -507,7 +506,7 @@ tileSheet:
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; cobble stones
+; boardwalk (horizontal)
 	.byte 	$df,$df,$df,$df,$df,$df,$df,$df		; ________  
 	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$df		; |_______  
@@ -516,13 +515,49 @@ tileSheet:
 	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; cobble stones (vertical)
+; boardwalk (vertical)
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
 	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
 	.byte 	$fc,$df,$df,$fc,$df,$df,$df,$fc		; |__|___|  
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
 	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; cobblestones
+	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
+	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
+	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
+	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
+	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
+	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
 ; blank
