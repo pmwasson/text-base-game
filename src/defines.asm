@@ -17,6 +17,8 @@ HGRPAGE2        := $4000
 ; Soft switches
 SPEAKER         := $C030
 TEXTMODE 		:= $C01A	; Bit 7 is 1 if text mode
+ALTCHARSETOFF   := $C00E    ; Write to turn off alternate characters
+ALTCHARSETON    := $C00F    ; Write to turn on alternate characters
 
 ; ROM routines
 GR 				:= $F390	; Low-res mixed graphics mode
