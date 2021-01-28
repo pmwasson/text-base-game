@@ -490,11 +490,11 @@ tileSheet:
 
  ; tree2
 	.byte 	$a0,$a0,$a0,$df,$df,$a0,$a0,$a0     ;    __
-	.byte 	$a0,$df,$af,$ae,$a0,$dc,$df,$a0     ;  _/. \_
-	.byte 	$af,$a0,$a0,$a0,$a0,$ae,$a0,$dc     ; /    . \
-	.byte 	$fc,$a0,$ae,$a0,$a0,$a0,$a0,$fc     ; | .    |
-	.byte 	$a0,$dc,$df,$de,$de,$df,$af,$a0     ;  \_^^_/
-	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
+	.byte 	$a0,$a0,$a8,$ac,$a0,$a9,$a0,$a0     ;   (, )
+	.byte 	$a0,$a8,$a0,$a0,$ac,$a0,$a9,$a0     ;  (  , )
+	.byte 	$a8,$a0,$ac,$a0,$a0,$ac,$a0,$a9     ; ( ,  , )
+	.byte 	$a0,$a8,$df,$a0,$a0,$df,$a9,$a0     ;  (_  _)
+	.byte 	$a0,$a0,$a0,$dd,$db,$a0,$a0,$a0     ;    ][ 
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
 ; water
@@ -586,4 +586,3 @@ tileSheet:
 	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
 	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
-
