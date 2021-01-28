@@ -42,97 +42,200 @@
 
 .include "defines.asm"
 
-TILE_HEIGHT = 	6
-TILE_WIDTH  = 	8
+TILE_HEIGHT 	= 6
+TILE_WIDTH  	= 8
+SCREEN_WIDTH 	= 5
+SCREEN_HEIGHT 	= 3
+SCREEN_OFFSET   = 3
+MAP_WIDTH 		= 16
+MAP_HEIGHT 		= 16
+CACHE_UP 		= 2
+CACHE_LEFT 		= 6
+CACHE_RIGHT 	= 8
+CACHE_DOWN 		= 12
 
 ;------------------------------------------------
 ; Zero page usage
 ;------------------------------------------------
 
-tilePtr0    :=  $60     ; Tile pointer
-tilePtr1    :=  $61
+tilePtr0    :=  $50     ; Tile pointer
+tilePtr1    :=  $51
 screenPtr0  :=  $52     ; Screen pointer
 screenPtr1  :=  $53
-
+mapPtr0     :=  $54 	; Map pointer
+mapPtr1     :=  $55
 
 .segment "CODE"
 .org    $2000
 
 
 .proc main
-
 	; clear screen
 	jsr     HOME
 
-	; Turn on alternate characters
+	; Allow other characters
 	sta 	ALTCHARSETON
 
 	; set-up screen
 	jsr		fill_screen
 	jsr		draw_boarders
 
-	; test tile
-
-	lda 	#3
-	sta 	tileY
-	lda 	#0
-	sta 	tileX
-
-	lda 	#1
-	jsr 	draw_tile
-
-	lda 	#8
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
-
-	lda 	#16
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
-
-	lda 	#24
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
-
-	lda 	#32
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
+	; set starting position
+	lda 	#(MAP_WIDTH-SCREEN_WIDTH)/2
+	sta 	mapX
+	lda 	#MAP_HEIGHT-SCREEN_HEIGHT
+	sta 	mapY
 
 
-	lda 	#9
-	sta 	tileY
-	lda 	#0
-	sta 	tileX
+gameLoop:
 
-	lda 	#1
-	jsr 	draw_tile
+	jsr		draw_map
 
-	lda 	#8
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
+waitForKey:
+	lda		KBD
+	bpl		waitForKey
+	sta		KBDSTRB
 
-	lda 	#16
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
+    ;------------------
+    ; W = Up
+    ;------------------
+    cmp     #$80 | 'W'
+    bne     :+
+    ldx 	#CACHE_UP
+    lda 	mapCache,x
+    bne		waitForKey
+    dec 	mapY
+    jmp     gameLoop
+:
 
-	lda 	#24
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
+    ;------------------
+    ; S = Down
+    ;------------------
+    cmp     #$80 | 'S'
+    bne     :+
+    ldx 	#CACHE_DOWN
+    lda 	mapCache,x
+    bne		waitForKey
+    inc 	mapY
+    jmp     gameLoop
+:
 
-	lda 	#32
-	sta 	tileX
-	lda 	#1
-	jsr 	draw_tile
+    ;------------------
+    ; A = Left
+    ;------------------
+    cmp     #$80 | 'A'
+    bne     :+
+    ldx 	#CACHE_LEFT
+    lda 	mapCache,x
+    bne		waitForKey
+    dec 	mapX
+    jmp     gameLoop
+:
 
+    ;------------------
+    ; D = Right
+    ;------------------
+    cmp     #$80 | 'D'
+    bne     :+
+    ldx 	#CACHE_RIGHT
+    lda 	mapCache,x
+    bne		waitForKey
+    inc 	mapX
+    jmp     gameLoop
+:
 
-    ; exit
+    ;------------------
+    ; ESC = Quit
+    ;------------------
+    cmp     #$9B
+    bne     :+
     jmp		MONZ
+:
+
+	jmp		waitForKey
+
+.endproc
+
+
+
+;-----------------------------------------------------------------------------
+; draw_map
+;-----------------------------------------------------------------------------
+
+.proc draw_map
+
+	lda 	#SCREEN_OFFSET
+	sta		tileY
+
+	lda 	#0
+	sta 	index
+
+loopy:	
+	lda 	#0
+	sta 	tileX
+
+loopx:
+	lda 	mapY
+	asl
+	asl
+	asl
+	asl
+	clc
+	adc 	mapX
+	tax
+	lda 	map,x
+
+	jsr 	draw_tile
+
+	; remember tile info byte
+	ldx 	index
+	sta 	mapCache,x
+	inc 	index
+
+	inc 	mapX
+
+	; add width to X
+	clc
+	lda 	tileX
+	adc 	#TILE_WIDTH
+	sta 	tileX
+	cmp		#SCREEN_WIDTH*TILE_WIDTH-1
+	bmi 	loopx
+
+	; restore mapX
+	sec
+	lda 	mapX
+
+	sbc		#SCREEN_WIDTH
+	sta 	mapX
+
+	inc 	mapY
+
+	; add height to Y 
+	clc
+	lda 	tileY
+	adc 	#TILE_HEIGHT
+	sta 	tileY
+	cmp		#SCREEN_HEIGHT*TILE_HEIGHT-1+SCREEN_OFFSET
+	bmi 	loopy
+
+	; restore mapY
+	sec
+	lda 	mapY
+	sbc		#SCREEN_HEIGHT
+	sta 	mapY
+
+	; draw player
+	lda 	#0+TILE_WIDTH*2
+	sta 	tileX
+	lda 	#3+TILE_HEIGHT*1
+	sta 	tileY
+	lda 	#9
+	jsr 	draw_tile
+
+	rts
+
+index: 		.byte 	0
 
 .endproc
 
@@ -169,6 +272,9 @@ loop:
 	sta		$0500,x 			; row 2
 	sta		$06D0,x 			; row 21
 	sta		$07D0,x 			; row 23
+	lda 	#$2D
+	sta		$0480,x 			; row 1
+	sta		$0750,x 			; row 22
 	inx
 	cpx		#40
 	bne 	loop
@@ -241,6 +347,10 @@ skip:
     dex
     bne 	loopy
 
+    ; load info byte
+    ldy 	#0
+    lda     (tilePtr0),y
+
     rts    
 
 ; locals
@@ -261,6 +371,13 @@ temp:		.byte   0
 
 tileX:		.byte 	0
 tileY:		.byte 	0
+mapX:	    .byte 	0
+mapY:	    .byte 	0
+
+mapCache:	
+			.byte 	0,0,0,0,0
+			.byte 	0,0,0,0,0
+			.byte 	0,0,0,0,0
 
 ; Data
 ;-----------------------------------------------------------------------------
@@ -318,8 +435,104 @@ linePage:
     .byte   >$07D0
 
 
+; Make sure data is algined
+
+.align  256
+
+; 16 x 16
+map:
+	.byte 	3,2,2,3,4,4,3,2,2,2,3,2,2,3,2,2
+	.byte 	2,2,1,1,4,4,0,0,0,0,0,1,1,1,2,3
+	.byte 	2,2,1,1,4,1,0,0,0,0,0,6,1,1,2,2
+	.byte 	2,3,1,1,4,1,0,1,1,1,0,6,0,1,2,2
+	.byte 	3,2,1,1,4,1,0,1,3,1,0,6,0,1,2,3
+	.byte 	2,2,1,5,5,5,5,5,5,5,5,6,0,0,2,2
+	.byte 	3,2,1,1,4,1,3,1,0,0,0,1,0,1,3,2
+	.byte 	2,2,1,1,4,1,1,1,0,0,0,1,0,1,2,2
+	.byte 	2,3,1,1,4,0,0,0,0,0,1,1,3,2,2,2
+	.byte 	2,2,1,1,4,1,1,0,0,0,1,1,1,1,2,2
+	.byte 	2,2,0,0,4,1,1,1,0,0,0,1,1,1,3,2
+	.byte 	2,3,0,4,4,1,1,1,0,0,0,1,0,1,2,2
+	.byte 	2,3,4,4,1,1,3,1,0,1,2,3,0,0,2,3
+	.byte 	2,3,4,0,1,3,1,0,1,2,1,1,2,2,2,2
+	.byte 	2,2,4,1,3,1,1,0,1,1,1,1,1,1,2,2
+	.byte   2,2,4,2,2,2,3,2,2,2,2,3,2,2,3,2
+
 
 tileSheet:
+
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; grass
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$ac,$a0		;       , 
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0		;
+	.byte 	$a0,$a7,$a0,$a0,$a0,$a0,$a0,$a0		;  '     
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a7,$a0,$a0     ;      '
+	.byte 	$a0,$a0,$a7,$a0,$a0,$a0,$a0,$a0     ;   '
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0     ;
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+ ; tree1
+	.byte 	$a0,$a0,$a0,$af,$dc,$a0,$a0,$a0     ;    /\
+	.byte 	$a0,$a0,$af,$af,$dc,$dc,$a0,$a0     ;   //\\
+	.byte 	$a0,$af,$af,$af,$dc,$dc,$dc,$a0     ;  ///\\\
+	.byte 	$af,$af,$af,$af,$dc,$dc,$dc,$dc     ; ////\\\\
+	.byte 	$a0,$a0,$a0,$fc,$fc,$a0,$a0,$a0     ;    ||
+	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+ ; tree2
+	.byte 	$a0,$a0,$a0,$df,$df,$a0,$a0,$a0     ;    __
+	.byte 	$a0,$df,$af,$ae,$a0,$dc,$df,$a0     ;  _/. \_
+	.byte 	$af,$a0,$a0,$a0,$a0,$ae,$a0,$dc     ; /    . \
+	.byte 	$fc,$a0,$ae,$a0,$a0,$a0,$a0,$fc     ; | .    |
+	.byte 	$a0,$dc,$df,$de,$de,$df,$af,$a0     ;  \_^^_/
+	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; water
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
+	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; cobble stones
+	.byte 	$df,$df,$df,$df,$df,$df,$df,$df		; ________  
+	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
+	.byte 	$fc,$df,$df,$df,$df,$df,$df,$df		; |_______  
+	.byte 	$df,$df,$df,$fc,$df,$df,$df,$df		; ___|____  
+	.byte 	$df,$df,$df,$df,$df,$df,$df,$fc		; _______|  
+	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; cobble stones (vertical)
+	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
+	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
+	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
+	.byte 	$fc,$df,$df,$fc,$df,$df,$df,$fc		; |__|___|  
+	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
+	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
 ; checker board
 	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
@@ -330,11 +543,12 @@ tileSheet:
 	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; grass
-	.byte 	$b0,$b1,$b2,$b3,$b4,$b5,$b6,$b7
-	.byte 	$b8,$b9,$b2,$b3,$b4,$b5,$b6,$b7
-	.byte 	$b0,$b1,$b2,$b3,$b4,$b5,$b6,$b7
-	.byte 	$b0,$b1,$b2,$b3,$b4,$b5,$b6,$b7
-	.byte 	$b0,$b1,$b2,$b3,$b4,$b5,$b6,$b7
-	.byte 	$b0,$b1,$b2,$b3,$b4,$b5,$b6,$b7
+; player
+	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
+	.byte 	$00,$00,$a8,$ef,$ef,$a9,$00,$00     ;   (oo)
+	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
+	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
+	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
+	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
