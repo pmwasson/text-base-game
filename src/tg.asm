@@ -45,14 +45,14 @@
 TILE_HEIGHT 	= 6
 TILE_WIDTH  	= 8
 SCREEN_WIDTH 	= 5
-SCREEN_HEIGHT 	= 3
-SCREEN_OFFSET   = 3
+SCREEN_HEIGHT 	= 4
+SCREEN_OFFSET   = 0
 MAP_WIDTH 		= 16
 MAP_HEIGHT 		= 16
-CACHE_UP 		= 2
-CACHE_LEFT 		= 6
-CACHE_RIGHT 	= 8
-CACHE_DOWN 		= 12
+CACHE_UP 		= 2+5
+CACHE_LEFT 		= 6+5
+CACHE_RIGHT 	= 8+5
+CACHE_DOWN 		= 12+5
 
 ;------------------------------------------------
 ; Zero page usage
@@ -225,9 +225,9 @@ loopx:
 	sta 	mapY
 
 	; draw player
-	lda 	#0+TILE_WIDTH*2
+	lda 	#TILE_WIDTH*2
 	sta 	tileX
-	lda 	#3+TILE_HEIGHT*1
+	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
 	sta 	tileY
 	lda 	#13
 	jsr 	draw_tile
@@ -377,6 +377,7 @@ mapCache:
 			.byte 	0,0,0,0,0
 			.byte 	0,0,0,0,0
 			.byte 	0,0,0,0,0
+			.byte 	0,0,0,0,0
 
 ; Data
 ;-----------------------------------------------------------------------------
@@ -440,9 +441,9 @@ linePage:
 
 ; 16 x 16
 map:
-	.byte 	3,2,2,3,4,4,3,2,2,2,3,2,2,3,2,2
-	.byte 	2,2,1,1,4,4,0,0,0,0,0,1,1,1,2,3
-	.byte 	2,2,1,1,4,1,0,0,0,0,0,6,1,1,2,2
+	.byte 	3,2,2,4,4,4,4,4,4,2,3,2,2,3,2,2
+	.byte 	2,2,3,2,4,4,4,4,3,2,2,2,3,2,2,3
+	.byte 	2,2,2,1,4,1,0,0,0,0,0,6,1,3,2,2
 	.byte 	2,3,1,1,4,1,0,1,1,1,0,6,0,1,2,2
 	.byte 	3,2,1,1,4,1,0,1,3,1,0,6,0,1,2,3
 	.byte 	2,2,1,5,5,5,5,5,5,5,5,6,0,0,2,2
