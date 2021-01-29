@@ -38,12 +38,11 @@ mapPtr0     :=  $54 	; Map pointer
 mapPtr1     :=  $55
 
 .segment "CODE"
-.org    $2000
+.org    $C00
 
 
 .proc main
 
-	sta 	SETALTCHAR 		; Turn on MouseText
 
 	; Since draw-map draws the whole screen,
 	; no need to clear screen at startup
@@ -54,6 +53,10 @@ mapPtr1     :=  $55
 	lda 	#MAP_HEIGHT-SCREEN_HEIGHT
 	sta 	mapY
 
+	jmp		gameLoop
+
+movement:
+	jsr 	sound_walk
 
 gameLoop:
 	inc 	gameTime
@@ -68,55 +71,55 @@ commandLoop:
     ;------------------
     ; W = Up
     ;------------------
-    cmp     #$80 | 'W'
+    cmp     #'W'
     bne     :+
     ldx 	#CACHE_UP
     lda 	mapCache,x
-    bne		commandLoop
+    bne		bump
     dec 	mapY
-    jmp     gameLoop
+    jmp     movement
 :
 
     ;------------------
     ; S = Down
     ;------------------
-    cmp     #$80 | 'S'
+    cmp     #'S'
     bne     :+
     ldx 	#CACHE_DOWN
     lda 	mapCache,x
-    bne		commandLoop
+    bne		bump
     inc 	mapY
-    jmp     gameLoop
+    jmp     movement
 :
 
     ;------------------
     ; A = Left
     ;------------------
-    cmp     #$80 | 'A'
+    cmp     #'A'
     bne     :+
     ldx 	#CACHE_LEFT
     lda 	mapCache,x
-    bne		commandLoop
+    bne		bump
     dec 	mapX
-    jmp     gameLoop
+    jmp     movement
 :
 
     ;------------------
     ; D = Right
     ;------------------
-    cmp     #$80 | 'D'
+    cmp     #'D'
     bne     :+
     ldx 	#CACHE_RIGHT
     lda 	mapCache,x
-    bne		commandLoop
+    bne		bump
     inc 	mapX
-    jmp     gameLoop
+    jmp     movement
 :
 
     ;------------------
     ; Space = wait
     ;------------------
-    cmp     #$A0
+    cmp     #$20
     bne     :+
     jmp     gameLoop
 :
@@ -124,7 +127,7 @@ commandLoop:
     ;------------------
     ; ESC = Quit
     ;------------------
-    cmp     #$9B
+    cmp     #$1B
     bne     :+
     lda 	#23
     sta  	CV 			; Make sure cursor is on the bottom row 		
@@ -135,21 +138,66 @@ commandLoop:
     ;------------------
     ; Time-out
     ;------------------
-    cmp     #0
+    cmp     #$ff
     bne     :+
     jmp     gameLoop
 :
 
 	jmp		commandLoop
 
+bump:
+	jsr 	sound_bump
+	jmp 	gameLoop
+
 .endproc
 
 
 
 ;-----------------------------------------------------------------------------
+; sound_tone
+;-----------------------------------------------------------------------------
+; A = tone
+; X = duration
+.proc sound_tone
+loop1:
+	sta 	SPEAKER
+	tay
+loop2:
+	nop
+	nop
+	nop
+	nop				; add some delay for lower notes
+	dey
+	bne		loop2
+	dex
+	bne 	loop1
+	rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; sound_walk
+;-----------------------------------------------------------------------------
+.proc sound_walk
+	lda 	#192 		; tone
+	ldx 	#10			; duration
+	jmp 	sound_tone	; link returns
+.endproc
+
+;-----------------------------------------------------------------------------
+; sound_bump
+;-----------------------------------------------------------------------------
+.proc sound_bump
+	lda 	#100 		; tone
+	ldx 	#40			; duration
+	jmp 	sound_tone	; link returns
+.endproc
+
+
+;-----------------------------------------------------------------------------
 ; get_key
 ;-----------------------------------------------------------------------------
-; Return key with bit 7 set, or zero if timeout
+; Return key with bit 7 clear, or -1 if timeout
 ;
 
 .proc get_key
@@ -168,11 +216,12 @@ waitForKey:
 	bne 	waitForKey
 
 	; exit with no key after timeout
-	lda 	#0
+	lda 	#$ff
 	rts
 
 gotKey:	
 	sta		KBDSTRB
+	and 	#$7f 		; remove upper bit
 	rts
 .endproc
 
