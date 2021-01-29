@@ -43,6 +43,8 @@ mapPtr1     :=  $55
 
 .proc main
 
+	sta 	SETALTCHAR 		; Turn on MouseText
+
 	; Since draw-map draws the whole screen,
 	; no need to clear screen at startup
 
@@ -256,16 +258,9 @@ loopx:
 	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
 	sta 	tileY
 
-
-	lda 	gameTime
-	and 	#$3f
-	beq		:+
 	lda 	#13
 	jsr 	draw_tile
-	jmp 	flipPage
-:
-	lda 	#14
-	jsr 	draw_tile
+
 
 flipPage:
 	; flip page
@@ -610,7 +605,43 @@ tileSheet:
 	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; player
+; player (blink)
+	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
+	.byte 	$00,$00,$a8,$ad,$ad,$a9,$00,$00     ;   (--)
+	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
+	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
+	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
+	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
+    .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; animated
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; blank
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+
+; player (normal)
 	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
 	.byte 	$00,$00,$a8,$ef,$ef,$a9,$00,$00     ;   (oo)
 	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
@@ -619,11 +650,3 @@ tileSheet:
 	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
-; player (blink)
-	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
-	.byte 	$00,$00,$a8,$ad,$ad,$a9,$00,$00     ;   (--)
-	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
-	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
-	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
-	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
