@@ -63,7 +63,7 @@ gameLoop:
 	bne		:+
 	inc 	gameTimeHi
 :	
-	jsr		draw_map
+	jsr		draw_screen
 
 commandLoop:	
 	jsr 	get_key
@@ -74,7 +74,7 @@ commandLoop:
     cmp     #'W'
     bne     :+
     ldx 	#CACHE_UP
-    lda 	mapCache,x
+    jsr 	check_movement
     bne		bump
     dec 	mapY
     jmp     movement
@@ -86,7 +86,7 @@ commandLoop:
     cmp     #'S'
     bne     :+
     ldx 	#CACHE_DOWN
-    lda 	mapCache,x
+    jsr 	check_movement
     bne		bump
     inc 	mapY
     jmp     movement
@@ -98,7 +98,7 @@ commandLoop:
     cmp     #'A'
     bne     :+
     ldx 	#CACHE_LEFT
-    lda 	mapCache,x
+    jsr 	check_movement
     bne		bump
     dec 	mapX
     jmp     movement
@@ -110,7 +110,7 @@ commandLoop:
     cmp     #'D'
     bne     :+
     ldx 	#CACHE_RIGHT
-    lda 	mapCache,x
+    jsr 	check_movement
     bne		bump
     inc 	mapX
     jmp     movement
@@ -152,6 +152,16 @@ bump:
 .endproc
 
 
+;-----------------------------------------------------------------------------
+; check_movement
+;-----------------------------------------------------------------------------
+; X = location to check
+; A = 0 if free, 1 if blocked
+.proc check_movement
+    lda 	mapCache,x
+    and 	#1
+    rts
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; sound_tone
@@ -227,18 +237,75 @@ gotKey:
 
 
 ;-----------------------------------------------------------------------------
-; draw_map
+; draw_screen
 ;-----------------------------------------------------------------------------
 
-.proc draw_map
+.proc draw_screen
 
-	; set page offset
+	; Alternate page to draw
+	;-------------------------------------------------------------------------
 	lda 	#0		; if showing page 2, draw on page 1
 	ldx 	PAGE2
 	bmi 	pageSelect
 	lda 	#4		; displaying page 1, draw on page 2
 pageSelect:
 	sta 	drawPage
+
+
+	; Draw map and player
+	;-------------------------------------------------------------------------
+
+	jsr		draw_map
+
+
+	; draw player
+	lda 	#TILE_WIDTH*2
+	sta 	tileX
+	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
+	sta 	tileY
+
+	lda 	#13
+	jsr 	draw_tile
+
+	; Handle special tiles
+	;-------------------------------------------------------------------------
+	ldx 	#19
+specialLoop:
+	lda 	mapCache,x
+	bpl		:+
+	stx 	mapCacheIndex
+	and     #$7C 	; clear bit 7, 1 and 0
+
+ 	sta     *+4 	; dynamically set lower byte for jump table
+	jsr 	tile_jump_table ; WARNING: don't add anything before list line
+
+	ldx 	mapCacheIndex
+:
+	dex
+	bpl 	specialLoop
+
+	; Set display page
+	;-------------------------------------------------------------------------
+
+flipPage:
+	; flip page
+	ldx 	PAGE2
+	bmi 	flipToPage1
+	sta 	HISCR 			; display page 2
+	rts
+
+flipToPage1:
+	sta 	LOWSCR 			; diaplay page 1
+	rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; draw_map
+;-----------------------------------------------------------------------------
+
+.proc draw_map
+
 
 	lda 	#SCREEN_OFFSET
 	sta		tileY
@@ -301,25 +368,6 @@ loopx:
 	sbc		#SCREEN_HEIGHT
 	sta 	mapY
 
-	; draw player
-	lda 	#TILE_WIDTH*2
-	sta 	tileX
-	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
-	sta 	tileY
-
-	lda 	#13
-	jsr 	draw_tile
-
-
-flipPage:
-	; flip page
-	ldx 	PAGE2
-	bmi 	flipToPage1
-	sta 	HISCR
-	rts
-
-flipToPage1:
-	sta 	LOWSCR
 	rts
 
 index: 		.byte 	0
@@ -422,7 +470,7 @@ skip:
     dex
     bne 	loopy
 
-    ; load info byte
+    ; load info bytes
     ldy 	#0
     lda     (tilePtr0),y
 
@@ -432,6 +480,70 @@ skip:
 temp:		.byte   0
 
 .endproc
+
+
+;-----------------------------------------------------------------------------
+; Tile handlers
+;-----------------------------------------------------------------------------
+; The following routines and called by special tiles.
+; They can look at mapX, mapY and mapCacheIndex to figure out which instance
+; was called and where it is on the screen
+
+
+;-----------------------------------------------------------------------------
+; tile_handler_coord
+;-----------------------------------------------------------------------------
+; Set tileX & Y base on cacheIndex
+.proc tile_handler_coord
+	ldx 	mapCacheIndex
+	lda 	mapCacheX,x
+	sta 	tileX
+	lda 	mapCacheY,x
+	sta 	tileY
+	clc
+	lda 	mapCacheOffsetX,x
+	adc 	mapX
+	sta 	specialX
+	lda 	mapCacheOffsetY,x
+	adc 	mapY
+	sta 	specialY
+	rts
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_sign
+;-----------------------------------------------------------------------------
+.proc tile_handler_sign
+	jsr 	tile_handler_coord
+	; for now, only one sign
+
+	; start one line down
+	inc 	tileY
+
+    ; calculate screen pointer
+    ldy     tileY
+    lda     tileX
+    clc
+    adc     lineOffset,y    ; + lineOffset
+    sta     screenPtr0    
+    lda     linePage,y
+    adc 	drawPage 		; previous carry should be clear
+    sta     screenPtr1
+
+    ldy		#7
+ :
+    lda 	signText,y
+    and 	#$3f 			; force inverse
+    sta 	(screenPtr0),y
+    dey
+    bpl 	:-
+
+	rts
+
+signText:
+	.byte 	"WELCOME!"
+.endproc
+
 
 
 ; Libraries
@@ -451,11 +563,37 @@ tileX:		.byte 	0
 tileY:		.byte 	0
 mapX:	    .byte 	0
 mapY:	    .byte 	0
+specialX:	.byte 	0
+specialY: 	.byte   0
 
+mapCacheIndex:
+			.byte 	0
 mapCache:	.res 	SCREEN_WIDTH*SCREEN_HEIGHT
+
 
 ; Data
 ;-----------------------------------------------------------------------------
+
+mapCacheX:
+	.byte 	0,8,16,24,32
+	.byte 	0,8,16,24,32
+	.byte 	0,8,16,24,32
+	.byte 	0,8,16,24,32
+mapCacheY:
+	.byte 	0,0,0,0,0
+	.byte   6,6,6,6,6
+	.byte 	12,12,12,12,12
+	.byte 	18,18,18,18,18
+mapCacheOffsetX:
+	.byte 	0,1,2,3,4
+	.byte 	0,1,2,3,4
+	.byte 	0,1,2,3,4
+	.byte 	0,1,2,3,4
+mapCacheOffsetY:
+	.byte 	0,0,0,0,0
+	.byte 	1,1,1,1,1
+	.byte 	2,2,2,2,2
+	.byte 	3,3,3,3,3
 
 lineOffset:
     .byte   <$0400
@@ -529,7 +667,7 @@ map:
 	.byte 	2,2,0,0,4,1,1,1,0,0,0,7,7,1,3,2
 	.byte 	2,3,0,4,4,1,1,1,0,0,0,7,1,0,2,2
 	.byte 	2,3,4,4,1,1,3,1,0,1,2,3,0,0,2,3
-	.byte 	2,3,4,0,1,3,1,0,1,2,1,1,2,2,2,2
+	.byte 	2,3,4,0,1,3,1,0,9,2,1,1,2,2,2,2
 	.byte 	2,2,4,1,3,1,1,0,1,1,1,1,1,1,2,2
 	.byte   2,2,4,2,2,2,3,2,2,2,2,3,2,2,3,2
 
@@ -544,7 +682,7 @@ tileSheet:
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; grass
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$ac,$a0		;       , 
@@ -553,7 +691,7 @@ tileSheet:
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a7,$a0,$a0     ;      '
 	.byte 	$a0,$a0,$a7,$a0,$a0,$a0,$a0,$a0     ;   '
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0     ;
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
  ; tree1
 	.byte 	$a0,$a0,$a0,$af,$dc,$a0,$a0,$a0     ;    /\
@@ -562,7 +700,7 @@ tileSheet:
 	.byte 	$af,$af,$af,$af,$dc,$dc,$dc,$dc     ; ////\\\\
 	.byte 	$a0,$a0,$a0,$fc,$fc,$a0,$a0,$a0     ;    ||
 	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
  ; tree2
 	.byte 	$a0,$a0,$a0,$df,$df,$a0,$a0,$a0     ;    __
@@ -571,7 +709,7 @@ tileSheet:
 	.byte 	$a8,$a0,$ac,$a0,$a0,$ac,$a0,$a9     ; ( ,  , )
 	.byte 	$a0,$a8,$df,$a0,$a0,$df,$a9,$a0     ;  (_  _)
 	.byte 	$a0,$a0,$a0,$dd,$db,$a0,$a0,$a0     ;    ][ 
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
 ; water
 	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
@@ -589,7 +727,7 @@ tileSheet:
 	.byte 	$df,$df,$df,$fc,$df,$df,$df,$df		; ___|____  
 	.byte 	$df,$df,$df,$df,$df,$df,$df,$fc		; _______|  
 	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; boardwalk (vertical)
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
@@ -598,7 +736,7 @@ tileSheet:
 	.byte 	$fc,$df,$df,$fc,$df,$df,$df,$fc		; |__|___|  
 	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
 	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; cobblestones
 	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
@@ -607,7 +745,7 @@ tileSheet:
 	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
 	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
 	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; water (alternate)
 	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
@@ -618,14 +756,14 @@ tileSheet:
 	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
     .byte   1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; sign
+	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
+	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
+	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
+	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
+	.byte 	$a0,$a0,$a0,$fc,$fc,$a0,$a0,$a0     ;    ||
+	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
+    .byte   $81,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (0)
 
 ; blank
 	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
@@ -697,5 +835,16 @@ tileSheet:
 	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
 	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
 	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; 
 
+
+; Jump table for special tiles
+.align  256
+
+tile_jump_table:
+
+.align 4 
+	jmp 	tile_handler_sign
+
+	; fill rest with BRK
+	.res	256-4,0
