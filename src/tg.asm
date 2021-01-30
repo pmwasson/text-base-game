@@ -18,6 +18,7 @@
 
 TILE_HEIGHT     = 6
 TILE_WIDTH      = 8
+TILE_SIZE       = 64    ; Rounded up
 SCREEN_WIDTH    = 5
 SCREEN_HEIGHT   = 4
 SCREEN_OFFSET   = 0
@@ -35,6 +36,10 @@ KEY_RIGHT       = 'D'
 KEY_LEFT        = 'A'
 KEY_WAIT        = ' '
 KEY_QUIT        = $1b
+
+; tiles
+
+tilePlayerIdx = (tilePlayer - tileSheet) / TILE_SIZE
 
 ;------------------------------------------------
 ; Zero page usage
@@ -327,7 +332,7 @@ specialLoop:
     lda     #SCREEN_OFFSET+TILE_HEIGHT*2
     sta     tileY
 
-    lda     #13
+    lda     #tilePlayerIdx
     jsr     draw_tile
 
     ; Set display page
@@ -862,6 +867,46 @@ dogText1:
 
 .endproc
 
+
+;-----------------------------------------------------------------------------
+; Ending Screen
+;-----------------------------------------------------------------------------
+
+; Ending requires an 80-column card
+
+.proc end_screen_80
+    ; 80 columns
+    jsr     $c300
+    jsr     HOME
+    jsr     inline_print
+    StringQuoteReturn   "  @Good boy!@"
+    StringQuoteReturn   "             >=~y,,                      Congratulations, you found Askey!"
+    StringQuoteReturn   "          (;-=    C@/."
+    StringQuoteReturn   "        >^<-yrC-   \[ `-                     Thanks for playing!"
+    StringQuoteReturn   "  ;g@\`     ^^@    ]F   >,"
+    StringQuoteReturn   "  V~s             ^A     ]"
+    StringQuoteReturn   "   'v    ,=,   . ,@       L"
+    StringQuoteReturn   "      ,@--@*\>  [@       /@           _,>,ww~=~r-~+.c"
+    StringQuoteReturn   "            ]v  P,    ,=*}*-~,,,w=^@@@               ;@=c         ,-,c"
+    StringQuoteReturn   "            ] C  -@*@`    P                           @h.-]*=~~r@J<@"
+    StringQuoteReturn   "            [ |           C                             - *@@@*@"
+    StringQuoteReturn   "            C ]            y                            ]"
+    StringQuoteReturn   "            L J             \          -@-``'            L"
+    StringQuoteReturn   "            ]  L             -       /\       ,A[@Y,     ]"
+    StringQuoteReturn   "             )  v                   A    >wr@L   \  \;    @~"
+    StringQuoteReturn   "              ]w @.               yC.r@-`   >- ,<     `@v   ["
+    StringQuoteReturn   "                \S; ` @.   |   ,=@-     .~^-  C          t  C"
+    StringQuoteReturn   "                 \  ]`'[   [@@-         ^~=-'            ]  C"
+    StringQuoteReturn   "                 /  |  }   L                            /\  ]"
+    StringQuoteReturn   "              ]*-   /  |   C                            *^^^*"
+    StringQuoteReturn   "               @@@@-  r    |"
+    StringQuoteReturn   "                      '*==*                  Game by Paul Wasson, 2021"
+    .byte               0
+
+    jmp     MONZ
+.endproc
+
+
 ; Libraries
 ;-----------------------------------------------------------------------------
 
@@ -998,7 +1043,7 @@ map:
 tileSheet:
 
 
-; blank
+tileBlank:
     StringHi    "        "
     StringHi    "        "
     StringHi    "        "
@@ -1008,7 +1053,7 @@ tileSheet:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 
-; grass
+tileGrass:
     StringHi    "      , "
     StringHi    "        "
     StringHi    " '      "
@@ -1117,6 +1162,7 @@ tileSheet:
     .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
 
 ; player (blink)
+tilePlayer:
     StringHiBG  "...--...",'.'
     StringHiBG  ". (--) .",'.'
     StringHiBG  ". -\/- .",'.'
