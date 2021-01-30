@@ -7,6 +7,7 @@
 ; Uses page flipping to remove flicker
 ; Animated water
 ; Idle animation (blinking)
+; You can pet the dog!
 
 ;------------------------------------------------
 ; Constants
@@ -201,8 +202,11 @@ loop2:
 ; sound_walk
 ;-----------------------------------------------------------------------------
 .proc sound_walk
-	lda 	#192 		; tone
-	ldx 	#10			; duration
+	lda 	#50 		; tone
+	ldx 	#5			; duration
+	jsr 	sound_tone
+	lda 	#190 		; tone
+	ldx 	#3			; duration
 	jmp 	sound_tone	; link returns
 .endproc
 
@@ -211,10 +215,39 @@ loop2:
 ;-----------------------------------------------------------------------------
 .proc sound_bump
 	lda 	#100 		; tone
-	ldx 	#40			; duration
+	ldx 	#20			; duration
+	jsr 	sound_tone
+	lda 	#90 		; tone
+	ldx 	#10			; duration
 	jmp 	sound_tone	; link returns
 .endproc
 
+;-----------------------------------------------------------------------------
+; sound_talk
+;-----------------------------------------------------------------------------
+.proc sound_talk
+	lda 	#60 		; tone
+	ldx 	#15			; duration
+	jsr 	sound_tone	; link returns
+	lda 	#40 		; tone
+	ldx 	#10			; duration
+	jmp 	sound_tone	; link returns
+.endproc
+
+;-----------------------------------------------------------------------------
+; sound_bark
+;-----------------------------------------------------------------------------
+.proc sound_bark
+	lda 	#20 		; tone
+	ldx 	#40	    	; duration
+	jsr 	sound_tone	; link returns
+	lda 	#200 		; tone
+	ldx 	#5		    ; duration
+	jsr 	sound_tone	; link returns
+	lda 	#50 		; tone
+	ldx 	#40	  		; duration
+	jmp 	sound_tone	; link returns
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; get_key
@@ -514,8 +547,10 @@ temp:		.byte   0
 	ldx 	mapCacheIndex
 	lda 	mapCacheX,x
 	sta 	tileX
+	sta 	textX
 	lda 	mapCacheY,x
 	sta 	tileY
+	sta 	textY
 	clc
 	lda 	mapCacheOffsetX,x
 	adc 	mapX
@@ -590,13 +625,7 @@ nextX: 		.byte 	0
 .proc tile_handler_sign
 	jsr 	tile_handler_coord
 
-	; Set text location
-
-	lda 	tileY
-	sta 	textY
-	lda 	tileX
-	sta 	textX
-
+	; choose message
 	lda 	specialX
 
 	; sign 1
@@ -675,26 +704,33 @@ signText3:
 	; check if guard is above or to the right of the player
 	lda 	mapCacheIndex
 	cmp 	#CACHE_UP
-	beq 	cont
+	beq 	:+
 	cmp 	#CACHE_RIGHT
-	beq 	cont
+	beq 	:+
 	cmp 	#CACHE_DOWN
 	bne 	done
+:
 
-
-cont:
 	; check if hit action key
 	lda 	lastKey
 	cmp 	#KEY_WAIT
-	bne 	:+
-	inc     state
-:	
-	
-	; display a message on odd states
+	bne 	display
+
+	inc 	state
 	lda 	state
-	and 	#1
+	cmp 	#3
+	bmi 	:+
+	lda     #0
+	sta 	state
+	jmp 	display
+:	
+	jsr 	sound_talk
+
+display:	
+	; display a message based on state
+	lda 	state
 	bne 	:+
-	rts 		; even = no display 
+	rts 	; zero = no display 
 :
 
 	; Display message
@@ -703,19 +739,35 @@ cont:
 	lda 	tileX
 	adc 	#TILE_WIDTH
 	sta 	tileX
+	sta 	textX
+
+	; set text pointers
+	inc 	textX
+	inc 	textY
 
 	; 1 = hi
 	lda 	state
-	and 	#3 		; only 2 messages
 	cmp 	#1
 	bne 	:+
 	lda 	#18
 	jsr 	draw_tile
+
+    lda 	#<guardText1
+    sta 	textPtr0
+    lda 	#>guardText1
+    sta 	textPtr1
+    jmp 	tile_print
 	rts
+
 :
-	; 3 = hows it going
+	; 2 = hows it going
 	lda 	#19
 	jsr 	draw_tile
+    lda 	#<guardText2
+    sta 	textPtr0
+    lda 	#>guardText2
+    sta 	textPtr1
+    jmp 	tile_print
 
 	rts
 
@@ -726,6 +778,20 @@ done:
 	rts
 
 state: 	.byte 0
+
+guardText1:
+	.byte 	$8d
+	StringHi	"Hi!"
+	.byte 	0
+
+guardText2:
+	.byte 	$8d
+	StringHi	"How's"
+	.byte 	$8d
+	StringHi	"it"
+	.byte 	$8d
+	StringHi	"going?"
+	.byte 	0
 .endproc
 
 
@@ -734,36 +800,66 @@ state: 	.byte 0
 ;-----------------------------------------------------------------------------
 .proc tile_handler_dog
 
+	jsr 	tile_handler_coord
+
+	; check if player is near dog
+	lda 	mapCacheIndex
+	cmp 	#CACHE_UP
+	beq 	:+
+	cmp 	#CACHE_RIGHT
+	beq 	:+
+	cmp 	#CACHE_DOWN
+	beq 	:+
+	cmp 	#CACHE_LEFT
+	beq 	:+
+	cmp 	#CACHE_CENTER
+	beq 	:+
+
+	; not near, reset state and exit
+	lda 	#0
+	sta 	state
+	rts
+:
+
 	; animation speed
 	lda 	gameTime
 	and 	#1
-	bne		:+
-	rts
-
-:
-	jsr 	tile_handler_coord
-
-	; if near dog, wag tail
-	; check if guard is above or to the right of the player
-	lda 	mapCacheIndex
-	cmp 	#CACHE_UP
-	beq 	wag
-	cmp 	#CACHE_RIGHT
-	beq 	wag
-	cmp 	#CACHE_DOWN
-	beq 	wag
-	cmp 	#CACHE_LEFT
-	beq 	wag
-	cmp 	#CACHE_CENTER
-	beq 	wag
-
-	rts 	; not near
-
-wag:
-
+	beq		:+
 	lda 	#12
 	jsr 	draw_tile
+:
+
+	; check if hit action key
+	lda 	lastKey
+	cmp 	#KEY_WAIT
+	bne 	:+
+	lda 	#10 		; how long to display text
+	sta 	state
+	jsr 	sound_bark
+:
+
+	lda 	state
+	beq		:+
+	dec 	state
+
+	inc 	textX
+	inc 	textX
+    lda 	#<dogText1
+    sta 	textPtr0
+    lda 	#>dogText1
+    sta 	textPtr1
+    jsr 	tile_print
+:
+
 	rts
+
+state: 	.byte 	0
+dogText1:
+	.byte 	$8d
+	StringHi	"BARK!"
+	.byte 	0
+
+
 .endproc
 
 ; Libraries
@@ -880,15 +976,15 @@ linePage:
 map:
 	.byte 	 3, 2, 2, 4, 4, 4, 4, 4, 4, 2, 3, 2, 2, 3, 2, 2
 	.byte 	 2, 2, 3, 2, 4, 4, 4, 4, 3, 2, 2, 2, 3, 2, 2, 3
-	.byte 	 2, 2, 2, 1, 4, 1, 0, 0, 0, 0, 0, 6, 1, 3, 2, 2
-	.byte 	 2, 3, 1, 1, 4, 1, 0, 1, 1, 1,11, 6, 0, 1, 2, 2
-	.byte 	 3, 2, 1, 1, 4, 1, 0, 1, 3, 1, 0, 6, 0, 1, 2, 3
-	.byte 	 2, 2, 1, 5, 5, 5, 5, 5, 5, 5, 5, 6, 0, 0, 2, 2
+	.byte 	 2, 2, 2, 1, 4, 1, 0, 0, 0, 0, 0, 1, 6, 3, 2, 2
+	.byte 	 2, 3, 1, 1, 4, 1, 0, 1, 1, 1,11, 0, 6, 1, 2, 2
+	.byte 	 3, 2, 1, 1, 4, 1, 0, 1, 3, 1, 0, 0, 6, 1, 2, 3
+	.byte 	 2, 2, 1, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 2, 2
 	.byte 	 3, 2, 1, 1, 4, 1, 3, 1, 0, 0, 0, 1, 0, 1, 3, 2
 	.byte 	 2, 2, 1, 1, 4, 1, 1, 1, 0, 0, 0, 1, 0, 1, 2, 2
 	.byte 	 2, 3, 1, 1, 4, 0, 0, 0, 0, 1,15,15,15,15,15, 2
-	.byte 	 2, 2, 1, 1, 4, 1, 1, 0, 0, 1,15, 7, 7, 7,15, 2
-	.byte 	 2, 2, 0, 0, 4, 1, 1, 1,10, 0, 0, 7, 7, 7,15, 2
+	.byte 	 2, 2, 11,1, 4, 1, 1, 0, 0, 1,15, 7, 7, 7,15, 2
+	.byte 	 2, 2, 0, 0, 4, 1, 1, 1,10, 0,16, 7, 7, 7,15, 2
 	.byte 	 2, 3, 0, 4, 4, 1, 1, 1, 0, 1,15, 7, 7, 7,15, 2
 	.byte 	 2, 3, 4, 4, 1, 1, 3, 1, 3, 2,15,15,15,15,15, 3
 	.byte 	 2, 3, 4, 0, 1, 3, 1, 0, 9, 9, 9,10, 1, 1, 3, 2
@@ -958,21 +1054,21 @@ tileSheet:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; boardwalk (vertical)
- 	StringHi	"|__||  |"
-	StringHi	"|  ||  |"
-	StringHi	"|  ||__|"
-	StringHi	"|__||  |"
-	StringHi	"|  ||  |"
-	StringHi	"|  ||__|"
+ 	StringHi	"|_|  | |"
+	StringHi	"| |  |_|"
+	StringHi	"| |__| |"
+	StringHi	"|_|  | |"
+	StringHi	"| |  |_|"
+	StringHi	"| |__| |"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
-; cobblestones
- 	StringHi	" /\  /\ "
-	StringHi	"<  ><  >"
-	StringHi	" \/  \/ "
- 	StringHi	" /\  /\ "
-	StringHi	"<  ><  >"
-	StringHi	" \/  \/ "
+; carpet (fancy)
+ 	StringHi	"//\\//\\"
+	StringHi	"<<>><<>>"
+	StringHi	"\\//\\//"
+ 	StringHi	"//\\//\\"
+	StringHi	"<<>><<>>"
+	StringHi	"\\//\\//"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; water (alternate)
@@ -993,13 +1089,13 @@ tileSheet:
 	StringHi	"  ,||.  "
     .byte   $80+0*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (0)
 
-; Merchant
-	StringHi	"   __   "
+; Guard
+	StringHi	"   ,_   "
 	StringHi	"  (..)  "
-	StringHi	"  (__)  "
-	StringHi	" \/[]\/ "
-	StringHi	"   []   "
-	StringHi	"   ||   "
+	StringHi	"  (__) ^"
+	StringHi	" \/[]\ |"
+	StringHi	"   [] \|"
+	StringHi	"   ||  |"
     .byte   $80+1*4+1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Blocking, Special (1), animated
 
 ; dog1
@@ -1029,12 +1125,12 @@ tileSheet:
 	StringHiBG	". |  | .",'.'
     .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; animated
 
-; Merchant (animated)
-	StringHi	"   __   "
-	StringHi	"  (..)  "
-	StringHi	"  (__)  "
-	StringHi	" \/[]\  "
-	StringHi	"   [] \ "
+; Guard (animated)
+	StringHi	"   ,_   "
+	StringHi	"  (..) ^"
+	StringHi	"  (__) |"
+	StringHi	"  /[]\/|"
+	StringHi	" / []  |"
 	StringHi	"   ||   "
     .byte   $80+1*4+1,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Blocking, Special (1), animated
 
@@ -1047,13 +1143,13 @@ tileSheet:
  	StringInv	"______!_"
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
-; blank
-	StringHi	"        "
-	StringHi	"        "
-	StringHi	"        "
-	StringHi	"        "
-	StringHi	"        "
-	StringHi	"        "
+; carpet (plain)
+ 	StringHi	" /\  /\ "
+	StringHi	"<  ><  >"
+	StringHi	" \/  \/ "
+ 	StringHi	" /\  /\ "
+	StringHi	"<  ><  >"
+	StringHi	" \/  \/ "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; player (normal)
@@ -1066,39 +1162,39 @@ tileSheet:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
 ; DialogRightSM
-	StringHiBG	"~~_____~",'~'
-	StringHiBG	"~/     \",'~'
-	StringHiBG	"<  Hi! |",'~'
-	StringHiBG	"~\_____/",'~'
+	StringHiBG	"~______~",'~'
+	StringHiBG	"<      |",'~'
+	StringHiBG	"|      |",'~'
+	StringHiBG	"|______|",'~'
 	StringHiBG	"~~~~~~~~",'~'
 	StringHiBG	"~~~~~~~~",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
 
 ; DialogRightMD
-	StringHiBG	"~~~____~",'~'
-	StringHiBG	"~~/    \",'~'
-	StringHiBG	"~/HOW'S|",'~'
-	StringHiBG	"<  IT  |",'~'
-	StringHiBG	"~\GOING|",'~'
-	StringHiBG	"~~\_?__/",'~'
+	StringHiBG	"~______~",'~'
+	StringHiBG	"<      |",'~'
+	StringHiBG	"|      |",'~'
+	StringHiBG	"|      |",'~'
+	StringHiBG	"|      |",'~'
+	StringHiBG	"|______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
 
 ; DialogRightLG1
-	StringHiBG	"~~~_____",'~'
-	StringHiBG	"~~/     ",'~'
-	StringHiBG	"~/      ",'~'
+	StringHiBG	"~_______",'~'
 	StringHiBG	"<       ",'~'
-	StringHiBG	"~\      ",'~'
-	StringHiBG	"~~\_____",'~'
+	StringHiBG	"|       ",'~'
+	StringHiBG	"|       ",'~'
+	StringHiBG	"|       ",'~'
+	StringHiBG	"|_______",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
 
 ; DialogRightLG2
 	StringHiBG	"_______~",'~'
-	StringHiBG	"       \",'~'
 	StringHiBG	"       |",'~'
 	StringHiBG	"       |",'~'
 	StringHiBG	"       |",'~'
-	StringHiBG	"_______/",'~'
+	StringHiBG	"       |",'~'
+	StringHiBG	"_______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
 
 ; Jump table for special tiles
