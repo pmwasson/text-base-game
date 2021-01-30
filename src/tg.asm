@@ -26,6 +26,14 @@ CACHE_UP 		= 2+5
 CACHE_LEFT 		= 6+5
 CACHE_RIGHT 	= 8+5
 CACHE_DOWN 		= 12+5
+CACHE_CENTER    = 7+5
+
+KEY_UP 			= 'W'
+KEY_DOWN 		= 'S'
+KEY_RIGHT		= 'D'
+KEY_LEFT		= 'A'
+KEY_WAIT 		= ' '
+KEY_QUIT        = $1b
 
 ;------------------------------------------------
 ; Zero page usage
@@ -70,11 +78,12 @@ gameLoop:
 
 commandLoop:	
 	jsr 	get_key
+	sta 	lastKey		; record last actual key press
 
     ;------------------
-    ; W = Up
+    ; Up
     ;------------------
-    cmp     #'W'
+    cmp     #KEY_UP
     bne     :+
     ldx 	#CACHE_UP
     jsr 	check_movement
@@ -84,9 +93,9 @@ commandLoop:
 :
 
     ;------------------
-    ; S = Down
+    ; Down
     ;------------------
-    cmp     #'S'
+    cmp     #KEY_DOWN
     bne     :+
     ldx 	#CACHE_DOWN
     jsr 	check_movement
@@ -96,9 +105,9 @@ commandLoop:
 :
 
     ;------------------
-    ; A = Left
+    ; Left
     ;------------------
-    cmp     #'A'
+    cmp     #KEY_LEFT
     bne     :+
     ldx 	#CACHE_LEFT
     jsr 	check_movement
@@ -108,9 +117,9 @@ commandLoop:
 :
 
     ;------------------
-    ; D = Right
+    ; Right
     ;------------------
-    cmp     #'D'
+    cmp     #KEY_RIGHT
     bne     :+
     ldx 	#CACHE_RIGHT
     jsr 	check_movement
@@ -120,17 +129,17 @@ commandLoop:
 :
 
     ;------------------
-    ; Space = wait
+    ; WAIT
     ;------------------
-    cmp     #$20
+    cmp     #KEY_WAIT
     bne     :+
     jmp     gameLoop
 :
 
     ;------------------
-    ; ESC = Quit
+    ; Quit
     ;------------------
-    cmp     #$1B
+    cmp     #KEY_QUIT
     bne     :+
     lda 	#23
     sta  	CV 			; Make sure cursor is on the bottom row 		
@@ -255,20 +264,10 @@ pageSelect:
 	sta 	drawPage
 
 
-	; Draw map and player
+	; Draw map
 	;-------------------------------------------------------------------------
 
 	jsr		draw_map
-
-
-	; draw player
-	lda 	#TILE_WIDTH*2
-	sta 	tileX
-	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
-	sta 	tileY
-
-	lda 	#13
-	jsr 	draw_tile
 
 	; Handle special tiles
 	;-------------------------------------------------------------------------
@@ -286,6 +285,17 @@ specialLoop:
 :
 	dex
 	bpl 	specialLoop
+
+
+	; Draw player
+	;-------------------------------------------------------------------------
+	lda 	#TILE_WIDTH*2
+	sta 	tileX
+	lda 	#SCREEN_OFFSET+TILE_HEIGHT*2
+	sta 	tileY
+
+	lda 	#13
+	jsr 	draw_tile
 
 	; Set display page
 	;-------------------------------------------------------------------------
@@ -599,7 +609,7 @@ nextX: 		.byte 	0
     jmp 	tile_print
 :
 	; sign 2
-	cmp 	#10
+	cmp 	#9
 	bne		:+ 	
     lda 	#<signText2
     sta 	textPtr0
@@ -608,7 +618,7 @@ nextX: 		.byte 	0
     jmp 	tile_print
 :
 	; sign 3
-	cmp 	#12
+	cmp 	#10
 	bne		:+ 	
     lda 	#<signText3
     sta 	textPtr0
@@ -626,29 +636,135 @@ nextX: 		.byte 	0
 
 signText0:
 	.byte 	$8d
-	StringInverse	"__????"
+	StringInv	"  ????"
 	.byte 	0
 
 signText1:
 	.byte 	$8d
-	StringInverse	"_WELCOME"
+	StringInv	"TUTORIAL"
+	.byte 	$8d
+	StringInv	"  --->  "
 	.byte 	0
 
 signText2:
+	StringInv	"  WASD"
 	.byte 	$8d
-	StringInverse	"___TO"
+	StringInv	" MOVES,"
+	.byte 	$8d
+	StringInv	" SPACE "
+	.byte 	$8d
+	StringInv	" ACTION"
 	.byte 	0
 
 signText3:
+	StringInv	" STAND"
 	.byte 	$8d
-	StringInverse	"__THE"
+	StringInv	" BELOW"
 	.byte 	$8d
-	StringInverse	"__GAME!"
+	StringInv	" TO TALK"
 	.byte 	0
 
 .endproc
 
+;-----------------------------------------------------------------------------
+; tile_handler_guard
+;-----------------------------------------------------------------------------
+.proc tile_handler_guard
+	jsr 	tile_handler_coord
 
+	; check if guard is above or to the right of the player
+	lda 	mapCacheIndex
+	cmp 	#CACHE_UP
+	beq 	cont
+	cmp 	#CACHE_RIGHT
+	beq 	cont
+	cmp 	#CACHE_DOWN
+	bne 	done
+
+
+cont:
+	; check if hit action key
+	lda 	lastKey
+	cmp 	#KEY_WAIT
+	bne 	:+
+	inc     state
+:	
+	
+	; display a message on odd states
+	lda 	state
+	and 	#1
+	bne 	:+
+	rts 		; even = no display 
+:
+
+	; Display message
+	; move 1 space to the right
+	clc
+	lda 	tileX
+	adc 	#TILE_WIDTH
+	sta 	tileX
+
+	; 1 = hi
+	lda 	state
+	and 	#3 		; only 2 messages
+	cmp 	#1
+	bne 	:+
+	lda 	#18
+	jsr 	draw_tile
+	rts
+:
+	; 3 = hows it going
+	lda 	#19
+	jsr 	draw_tile
+
+	rts
+
+done:
+	; reset state if player moves
+	lda 	#0
+	sta 	state
+	rts
+
+state: 	.byte 0
+.endproc
+
+
+;-----------------------------------------------------------------------------
+; tile_handler_dog
+;-----------------------------------------------------------------------------
+.proc tile_handler_dog
+
+	; animation speed
+	lda 	gameTime
+	and 	#1
+	bne		:+
+	rts
+
+:
+	jsr 	tile_handler_coord
+
+	; if near dog, wag tail
+	; check if guard is above or to the right of the player
+	lda 	mapCacheIndex
+	cmp 	#CACHE_UP
+	beq 	wag
+	cmp 	#CACHE_RIGHT
+	beq 	wag
+	cmp 	#CACHE_DOWN
+	beq 	wag
+	cmp 	#CACHE_LEFT
+	beq 	wag
+	cmp 	#CACHE_CENTER
+	beq 	wag
+
+	rts 	; not near
+
+wag:
+
+	lda 	#12
+	jsr 	draw_tile
+	rts
+.endproc
 
 ; Libraries
 ;-----------------------------------------------------------------------------
@@ -671,9 +787,11 @@ specialX:	.byte 	0
 specialY: 	.byte   0
 textX:		.byte   0
 textY:		.byte 	0
+lastKey:    .byte   0
 
 mapCacheIndex:
 			.byte 	0
+
 mapCache:	.res 	SCREEN_WIDTH*SCREEN_HEIGHT
 
 
@@ -760,22 +878,22 @@ linePage:
 
 ; 16 x 16
 map:
-	.byte 	3,2,2,4,4,4,4,4,4,2,3,2,2,3,2,2
-	.byte 	2,2,3,2,4,4,4,4,3,2,2,2,3,2,2,3
-	.byte 	2,2,2,1,4,1,0,0,0,0,0,6,1,3,2,2
-	.byte 	2,3,1,1,4,1,0,1,1,1,0,6,0,1,2,2
-	.byte 	3,2,1,1,4,1,0,1,3,1,0,6,0,1,2,3
-	.byte 	2,2,1,5,5,5,5,5,5,5,5,6,0,0,2,2
-	.byte 	3,2,1,1,4,1,3,1,0,0,0,1,0,1,3,2
-	.byte 	2,2,1,1,4,1,1,1,0,0,0,1,0,1,2,2
-	.byte 	2,3,1,1,4,0,0,0,0,0,1,1,3,7,2,2
-	.byte 	2,2,1,1,4,1,1,0,0,0,1,1,7,7,2,2
-	.byte 	2,2,0,0,4,1,1,1,0,0,0,7,7,1,3,2
-	.byte 	2,3,0,4,4,1,1,1,0,0,0,7,1,0,2,2
-	.byte 	2,3,4,4,1,1,3,1,3,2,2,3,3,2,2,3
-	.byte 	2,3,4,0,1,3,1,0,9,0,9,1,9,1,3,2
-	.byte 	2,2,4,1,3,1,1,0,1,1,1,1,1,1,2,2
-	.byte   2,2,4,2,2,2,3,2,2,2,2,3,2,2,3,2
+	.byte 	 3, 2, 2, 4, 4, 4, 4, 4, 4, 2, 3, 2, 2, 3, 2, 2
+	.byte 	 2, 2, 3, 2, 4, 4, 4, 4, 3, 2, 2, 2, 3, 2, 2, 3
+	.byte 	 2, 2, 2, 1, 4, 1, 0, 0, 0, 0, 0, 6, 1, 3, 2, 2
+	.byte 	 2, 3, 1, 1, 4, 1, 0, 1, 1, 1,11, 6, 0, 1, 2, 2
+	.byte 	 3, 2, 1, 1, 4, 1, 0, 1, 3, 1, 0, 6, 0, 1, 2, 3
+	.byte 	 2, 2, 1, 5, 5, 5, 5, 5, 5, 5, 5, 6, 0, 0, 2, 2
+	.byte 	 3, 2, 1, 1, 4, 1, 3, 1, 0, 0, 0, 1, 0, 1, 3, 2
+	.byte 	 2, 2, 1, 1, 4, 1, 1, 1, 0, 0, 0, 1, 0, 1, 2, 2
+	.byte 	 2, 3, 1, 1, 4, 0, 0, 0, 0, 1,15,15,15,15,15, 2
+	.byte 	 2, 2, 1, 1, 4, 1, 1, 0, 0, 1,15, 7, 7, 7,15, 2
+	.byte 	 2, 2, 0, 0, 4, 1, 1, 1,10, 0, 0, 7, 7, 7,15, 2
+	.byte 	 2, 3, 0, 4, 4, 1, 1, 1, 0, 1,15, 7, 7, 7,15, 2
+	.byte 	 2, 3, 4, 4, 1, 1, 3, 1, 3, 2,15,15,15,15,15, 3
+	.byte 	 2, 3, 4, 0, 1, 3, 1, 0, 9, 9, 9,10, 1, 1, 3, 2
+	.byte 	 2, 2, 4, 1, 3, 1, 1, 0, 1, 1, 1, 1, 1, 1, 2, 2
+	.byte    2, 2, 4, 2, 2, 2, 3, 2, 2, 2, 2, 3, 2, 2, 3, 2
 
 
 
@@ -785,175 +903,215 @@ tileSheet:
 
 
 ; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
+
 ; grass
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$ac,$a0		;       , 
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0		;
-	.byte 	$a0,$a7,$a0,$a0,$a0,$a0,$a0,$a0		;  '     
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a7,$a0,$a0     ;      '
-	.byte 	$a0,$a0,$a7,$a0,$a0,$a0,$a0,$a0     ;   '
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0     ;
+	StringHi	"      , "
+	StringHi	"        "
+	StringHi	" '      "
+	StringHi	"     '  "
+	StringHi	"  '     "
+	StringHi	"        "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
  ; tree1
-	.byte 	$a0,$a0,$a0,$af,$dc,$a0,$a0,$a0     ;    /\
-	.byte 	$a0,$a0,$af,$af,$dc,$dc,$a0,$a0     ;   //\\
-	.byte 	$a0,$af,$af,$af,$dc,$dc,$dc,$a0     ;  ///\\\
-	.byte 	$af,$af,$af,$af,$dc,$dc,$dc,$dc     ; ////\\\\
-	.byte 	$a0,$a0,$a0,$fc,$fc,$a0,$a0,$a0     ;    ||
-	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
+ 	StringHi	"   /\   "
+	StringHi	"  //\\  "
+	StringHi	" ///\\\ "
+	StringHi	"////\\\\"
+	StringHi	"   ||   "
+	StringHi	"  ,||.  "
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
  ; tree2
-	.byte 	$a0,$a0,$a0,$df,$df,$a0,$a0,$a0     ;    __
-	.byte 	$a0,$a0,$a8,$ac,$a0,$a9,$a0,$a0     ;   (, )
-	.byte 	$a0,$a8,$a0,$a0,$ac,$a0,$a9,$a0     ;  (  , )
-	.byte 	$a8,$a0,$ac,$a0,$a0,$ac,$a0,$a9     ; ( ,  , )
-	.byte 	$a0,$a8,$df,$a0,$a0,$df,$a9,$a0     ;  (_  _)
-	.byte 	$a0,$a0,$a0,$dd,$db,$a0,$a0,$a0     ;    ][ 
+ 	StringHi	"   __   "
+	StringHi	"  (, )  "
+	StringHi	" (  , ) "
+	StringHi	"( ,  , )"
+	StringHi	" (_  _) "
+	StringHi	"   ][   "
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
 ; water
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
+ 	StringHi	"( ) ( ) "
+	StringHi	") ( ) ( "
+	StringHi	"( ) ( ) "
+	StringHi	") ( ) ( "
+	StringHi	"( ) ( ) "
+	StringHi	") ( ) ( "
     .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
 ; boardwalk (horizontal)
-	.byte 	$df,$df,$df,$df,$df,$df,$df,$df		; ________  
-	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
-	.byte 	$fc,$df,$df,$df,$df,$df,$df,$df		; |_______  
-	.byte 	$df,$df,$df,$fc,$df,$df,$df,$df		; ___|____  
-	.byte 	$df,$df,$df,$df,$df,$df,$df,$fc		; _______|  
-	.byte 	$df,$df,$df,$df,$fc,$df,$df,$df		; ____|___  
+ 	StringHi	"________"
+	StringHi	"____|___"
+	StringHi	"|_______"
+	StringHi	"___|____"
+	StringHi	"_______|"
+	StringHi	"____|___"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; boardwalk (vertical)
-	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
-	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
-	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
-	.byte 	$fc,$df,$df,$fc,$df,$df,$df,$fc		; |__|___|  
-	.byte 	$fc,$df,$df,$df,$df,$df,$df,$fc		; |______|  
-	.byte 	$fc,$df,$df,$df,$fc,$df,$df,$fc		; |___|__|  
+ 	StringHi	"|__||  |"
+	StringHi	"|  ||  |"
+	StringHi	"|  ||__|"
+	StringHi	"|__||  |"
+	StringHi	"|  ||  |"
+	StringHi	"|  ||__|"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; cobblestones
-	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
-	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
-	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
-	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
-	.byte 	$dc,$af,$dc,$af,$dc,$af,$dc,$af 	; \/\/\/\/
-	.byte 	$af,$a0,$af,$a0,$af,$a0,$af,$a0 	; / / / / 
+ 	StringHi	" /\  /\ "
+	StringHi	"<  ><  >"
+	StringHi	" \/  \/ "
+ 	StringHi	" /\  /\ "
+	StringHi	"<  ><  >"
+	StringHi	" \/  \/ "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; water (alternate)
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( ) 
-	.byte 	$a9,$a0,$a8,$a0,$a9,$a0,$a8,$a0		; ) ( ) (
-	.byte 	$a8,$a0,$a9,$a0,$a8,$a0,$a9,$a0		; ( ) ( )  
-    .byte   1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
+	StringHi	") ( ) ( "
+	StringHi	"( ) ( ) "
+	StringHi	") ( ) ( "
+	StringHi	"( ) ( ) "
+	StringHi	") ( ) ( "
+ 	StringHi	"( ) ( ) "
+    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking, animated
 
 ; sign
-	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
-	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
-	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
-	.byte 	$1f,$1f,$1f,$1f,$1f,$1f,$1f,$1f     ; ________
-	.byte 	$a0,$a0,$a0,$fc,$fc,$a0,$a0,$a0     ;    ||
-	.byte 	$a0,$a0,$ac,$fc,$fc,$ae,$a0,$a0     ;   ,||.
-    .byte   $81,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (0)
+ 	StringInv	"        "
+ 	StringInv	"        "
+ 	StringInv	"        "
+ 	StringInv	"        "
+	StringHi	"   ||   "
+	StringHi	"  ,||.  "
+    .byte   $80+0*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (0)
 
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; Merchant
+	StringHi	"   __   "
+	StringHi	"  (..)  "
+	StringHi	"  (__)  "
+	StringHi	" \/[]\/ "
+	StringHi	"   []   "
+	StringHi	"   ||   "
+    .byte   $80+1*4+1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Blocking, Special (1), animated
 
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; dog1
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"     __ "
+	StringHi	"\__()'`;"
+	StringHi	"/    /` "
+	StringHi	"\\--\\  "
+    .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (2)
 
-; checker board
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-	.byte 	$56,$57,$56,$57,$56,$57,$56,$57
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; dog2
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"     __ "
+	StringHi	"___()'`;"
+	StringHi	"/    /` "
+	StringHi	"\\--\\  "
+    .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Special (2)
 
 ; player (blink)
-	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
-	.byte 	$00,$00,$a8,$ad,$ad,$a9,$00,$00     ;   (--)
-	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
-	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
-	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
-	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
+	StringHiBG	"...--...",'.'
+	StringHiBG	". (--) .",'.'
+	StringHiBG	". -\/- .",'.'
+	StringHiBG	"./ || \.",'.'
+	StringHiBG	".  /\  .",'.'
+	StringHiBG	". |  | .",'.'
     .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; animated
 
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+; Merchant (animated)
+	StringHi	"   __   "
+	StringHi	"  (..)  "
+	StringHi	"  (__)  "
+	StringHi	" \/[]\  "
+	StringHi	"   [] \ "
+	StringHi	"   ||   "
+    .byte   $80+1*4+1,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; Blocking, Special (1), animated
+
+; wall
+ 	StringInv	"    !   "
+ 	StringInv	"____!___"
+ 	StringInv	" !      "
+ 	StringInv	"_!______"
+ 	StringInv	"      ! "
+ 	StringInv	"______!_"
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; blocking
 
 ; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
-
-; blank
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-	.byte 	$a0,$a0,$a0,$a0,$a0,$a0,$a0,$a0
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+	StringHi	"        "
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; free-movement
 
 ; player (normal)
-	.byte 	$00,$00,$00,$ad,$ad,$00,$00,$00     ;    --
-	.byte 	$00,$00,$a8,$ef,$ef,$a9,$00,$00     ;   (oo)
-	.byte 	$00,$00,$ad,$dc,$af,$ad,$00,$00     ;   -\/-
-	.byte 	$00,$af,$00,$fc,$fc,$00,$dc,$00     ;  / || \
-	.byte 	$00,$00,$00,$af,$dc,$00,$00,$00     ;    /\
-	.byte 	$00,$00,$fc,$00,$00,$fc,$00,$00     ;   |  |
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; 
+	StringHiBG	"...--...",'.'
+	StringHiBG	". (oo) .",'.'
+	StringHiBG	". -\/- .",'.'
+	StringHiBG	"./ || \.",'.'
+	StringHiBG	".  /\  .",'.'
+	StringHiBG	". |  | .",'.'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 	; padding
 
+; DialogRightSM
+	StringHiBG	"~~_____~",'~'
+	StringHiBG	"~/     \",'~'
+	StringHiBG	"<  Hi! |",'~'
+	StringHiBG	"~\_____/",'~'
+	StringHiBG	"~~~~~~~~",'~'
+	StringHiBG	"~~~~~~~~",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
+
+; DialogRightMD
+	StringHiBG	"~~~____~",'~'
+	StringHiBG	"~~/    \",'~'
+	StringHiBG	"~/HOW'S|",'~'
+	StringHiBG	"<  IT  |",'~'
+	StringHiBG	"~\GOING|",'~'
+	StringHiBG	"~~\_?__/",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
+
+; DialogRightLG1
+	StringHiBG	"~~~_____",'~'
+	StringHiBG	"~~/     ",'~'
+	StringHiBG	"~/      ",'~'
+	StringHiBG	"<       ",'~'
+	StringHiBG	"~\      ",'~'
+	StringHiBG	"~~\_____",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
+
+; DialogRightLG2
+	StringHiBG	"_______~",'~'
+	StringHiBG	"       \",'~'
+	StringHiBG	"       |",'~'
+	StringHiBG	"       |",'~'
+	StringHiBG	"       |",'~'
+	StringHiBG	"_______/",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 			; padding
 
 ; Jump table for special tiles
 .align  256
 
 tile_jump_table:
 
-.align 4 
 	jmp 	tile_handler_sign
+	nop
+	jmp 	tile_handler_guard
+	nop
+	jmp 	tile_handler_dog
+	nop
 
 	; fill rest with BRK
 	.res	256-4,0

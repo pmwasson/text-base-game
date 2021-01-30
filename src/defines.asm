@@ -36,11 +36,3 @@ COUT            := $FDED    ; Output a character
 MON             := $FF65    ; Enter monitor (BRK)
 MONZ            := $FF69    ; Enter monitor
 WAIT 			:= $FCA8	; Wait 0.5*(26 + 27*A + 5*A*A) microseconds
-
-; Keyboard
-KEY_LEFT		= $88
-KEY_DOWN		= $8A
-KEY_UP			= $8B
-KEY_RIGHT		= $95
-KEY_ESC 		= $9B
-KEY_SPACE       = $A0
