@@ -1,5 +1,20 @@
 # text-base-game
-From Roby Sherman's Apple II Software Enthusiasts
+
+Making a tile-based game (Ultima-like) using the Apple 2 text mode for a contest being run on Facebook 
+
+You can grab the latest disk image here: https://github.com/pmwasson/text-base-game/raw/main/disk/tg.dsk
+
+---
+
+Using ca65 (part of the cc65 compiler) for assembling. https://cc65.github.io/
+
+AppleCommander to build disk images. https://applecommander.github.io/
+
+AppleWin for emulation. https://github.com/AppleWin/AppleWin
+
+---
+
+Official contest announcement from Roby Sherman's Apple II Software Enthusiasts
 
 THE FIRST A2SE PROGRAMMING EXHIBITION OF 2021 is here and it's all about doing more with less! 
 
