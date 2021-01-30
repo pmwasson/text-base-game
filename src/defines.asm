@@ -16,23 +16,23 @@ HGRPAGE2        := $4000
 
 ; Soft switches
 SPEAKER         := $C030
-TEXTMODE 		:= $C01A	; Bit 7 is 1 if text mode
+TEXTMODE        := $C01A    ; Bit 7 is 1 if text mode
 ALTCHARSETOFF   := $C00E    ; Write to turn off alternate characters
 ALTCHARSETON    := $C00F    ; Write to turn on alternate characters
-PAGE2 			:= $C01C    ; Bit 7 set if displaying page 2
+PAGE2           := $C01C    ; Bit 7 set if displaying page 2
 
 ; ROM routines
-GR 				:= $F390	; Low-res mixed graphics mode
+GR              := $F390    ; Low-res mixed graphics mode
 TEXT            := $F399    ; Text-mode
 HGR             := $F3E2    ; Turn on hi-res mode, page 1 mixed mode, clear    
 HGR2            := $F3D8    ; Turn on hi-res mode, page 2, clear
-PRBYTE 			:= $FDDA	; Print A as a 2-digit hex
-PRINTXY			:= $F940	; Print X(low) Y(high) as 4-digit hex
-VTAB 			:= $FC22	; Move the cursor to line CV
+PRBYTE          := $FDDA    ; Print A as a 2-digit hex
+PRINTXY         := $F940    ; Print X(low) Y(high) as 4-digit hex
+VTAB            := $FC22    ; Move the cursor to line CV
 HOME            := $FC58    ; Clear text screen
-CR 				:= $FC62 	; Output carriage return
+CR              := $FC62    ; Output carriage return
 RDKEY           := $FD0C    ; Read 1 char
 COUT            := $FDED    ; Output a character
 MON             := $FF65    ; Enter monitor (BRK)
 MONZ            := $FF69    ; Enter monitor
-WAIT 			:= $FCA8	; Wait 0.5*(26 + 27*A + 5*A*A) microseconds
+WAIT            := $FCA8    ; Wait 0.5*(26 + 27*A + 5*A*A) microseconds
