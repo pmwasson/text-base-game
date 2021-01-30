@@ -79,7 +79,7 @@ gameLoop:
 
 commandLoop:    
     jsr     get_key
-    sta     lastKey     ; record last actual key press
+    sta     lastKey     ; record last key press
 
     ;------------------
     ; Up
@@ -312,7 +312,7 @@ specialLoop:
     and     #$7C    ; clear bit 7, 1 and 0
 
     sta     *+4     ; dynamically set lower byte for jump table
-    jsr     tile_jump_table ; WARNING: don't add anything before list line
+    jsr     tile_jump_table ; WARNING: don't add anything before this line
 
     ldx     mapCacheIndex
 :
