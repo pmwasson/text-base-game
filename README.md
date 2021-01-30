@@ -2,7 +2,7 @@
 
 Making a tile-based game (Ultima-like) using the Apple 2 text mode for a contest being run on Facebook 
 
-You can grab the latest disk image here: https://github.com/pmwasson/text-base-game/raw/main/disk/template.dsk
+You can grab the latest disk image here: https://github.com/pmwasson/text-base-game/raw/main/disk/tg.dsk
 
 ---
 
