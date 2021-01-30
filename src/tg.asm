@@ -13,6 +13,7 @@
 ;------------------------------------------------
 
 .include "defines.asm"
+.include "macros.asm"
 
 TILE_HEIGHT 	= 6
 TILE_WIDTH  	= 8
@@ -36,6 +37,8 @@ screenPtr0  :=  $52     ; Screen pointer
 screenPtr1  :=  $53
 mapPtr0     :=  $54 	; Map pointer
 mapPtr1     :=  $55
+textPtr0   	:=  $56 	; Text pointer
+textPtr1   	:=  $57
 
 .segment "CODE"
 .org    $C00
@@ -50,7 +53,7 @@ mapPtr1     :=  $55
 	; set starting position
 	lda 	#(MAP_WIDTH-SCREEN_WIDTH)/2
 	sta 	mapX
-	lda 	#MAP_HEIGHT-SCREEN_HEIGHT
+	lda 	#MAP_HEIGHT-SCREEN_HEIGHT-1
 	sta 	mapY
 
 	jmp		gameLoop
@@ -482,6 +485,9 @@ temp:		.byte   0
 .endproc
 
 
+; TODO - put tile code in new file
+; May be possible to load different tiles and code for different levels
+
 ;-----------------------------------------------------------------------------
 ; Tile handlers
 ;-----------------------------------------------------------------------------
@@ -511,18 +517,17 @@ temp:		.byte   0
 .endproc
 
 ;-----------------------------------------------------------------------------
-; tile_handler_sign
+; tile_print
 ;-----------------------------------------------------------------------------
-.proc tile_handler_sign
-	jsr 	tile_handler_coord
-	; for now, only one sign
+.proc tile_print
+	
+	lda 	textX
+	sta 	nextX			; make a copy of textX
 
-	; start one line down
-	inc 	tileY
-
+lineLoop:
     ; calculate screen pointer
-    ldy     tileY
-    lda     tileX
+    ldy     textY
+    lda     textX
     clc
     adc     lineOffset,y    ; + lineOffset
     sta     screenPtr0    
@@ -530,18 +535,117 @@ temp:		.byte   0
     adc 	drawPage 		; previous carry should be clear
     sta     screenPtr1
 
-    ldy		#7
- :
-    lda 	signText,y
-    and 	#$3f 			; force inverse
-    sta 	(screenPtr0),y
-    dey
-    bpl 	:-
+    ldy 	#0
+printRow:    
+    lda 	(textPtr0),y
 
+    ; End of string
+    beq 	done
+
+    ; End of line
+    cmp 	#$8d
+    bne 	:+
+    inc 	textY
+    lda 	nextX
+    sta 	textX
+    clc
+    iny
+    tya
+    adc 	textPtr0
+    sta 	textPtr0
+    bcc 	lineLoop
+    inc 	textPtr1
+    jmp 	lineLoop
+:
+
+    ; Print!
+    sta 	(screenPtr0),y
+
+nextChar:
+	iny
+	bne 	printRow
+	inc 	textPtr1
+	jmp 	printRow
+
+done:
 	rts
 
-signText:
-	.byte 	"WELCOME!"
+nextX: 		.byte 	0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_sign
+;-----------------------------------------------------------------------------
+.proc tile_handler_sign
+	jsr 	tile_handler_coord
+
+	; Set text location
+
+	lda 	tileY
+	sta 	textY
+	lda 	tileX
+	sta 	textX
+
+	lda 	specialX
+
+	; sign 1
+	cmp 	#8
+	bne		:+ 	
+    lda 	#<signText1
+    sta 	textPtr0
+    lda 	#>signText1
+    sta 	textPtr1
+    jmp 	tile_print
+:
+	; sign 2
+	cmp 	#10
+	bne		:+ 	
+    lda 	#<signText2
+    sta 	textPtr0
+    lda 	#>signText2
+    sta 	textPtr1
+    jmp 	tile_print
+:
+	; sign 3
+	cmp 	#12
+	bne		:+ 	
+    lda 	#<signText3
+    sta 	textPtr0
+    lda 	#>signText3
+    sta 	textPtr1
+    jmp 	tile_print
+:
+	; default
+    lda 	#<signText0
+    sta 	textPtr0
+    lda 	#>signText0
+    sta 	textPtr1
+    jmp 	tile_print
+
+
+signText0:
+	.byte 	$8d
+	StringInverse	"__????"
+	.byte 	0
+
+signText1:
+	.byte 	$8d
+	StringInverse	"_WELCOME"
+	.byte 	0
+
+signText2:
+	.byte 	$8d
+	StringInverse	"___TO"
+	.byte 	0
+
+signText3:
+	.byte 	$8d
+	StringInverse	"__THE"
+	.byte 	$8d
+	StringInverse	"__GAME!"
+	.byte 	0
+
 .endproc
 
 
@@ -565,6 +669,8 @@ mapX:	    .byte 	0
 mapY:	    .byte 	0
 specialX:	.byte 	0
 specialY: 	.byte   0
+textX:		.byte   0
+textY:		.byte 	0
 
 mapCacheIndex:
 			.byte 	0
@@ -666,11 +772,14 @@ map:
 	.byte 	2,2,1,1,4,1,1,0,0,0,1,1,7,7,2,2
 	.byte 	2,2,0,0,4,1,1,1,0,0,0,7,7,1,3,2
 	.byte 	2,3,0,4,4,1,1,1,0,0,0,7,1,0,2,2
-	.byte 	2,3,4,4,1,1,3,1,0,1,2,3,0,0,2,3
-	.byte 	2,3,4,0,1,3,1,0,9,2,1,1,2,2,2,2
+	.byte 	2,3,4,4,1,1,3,1,3,2,2,3,3,2,2,3
+	.byte 	2,3,4,0,1,3,1,0,9,0,9,1,9,1,3,2
 	.byte 	2,2,4,1,3,1,1,0,1,1,1,1,1,1,2,2
 	.byte   2,2,4,2,2,2,3,2,2,2,2,3,2,2,3,2
 
+
+
+.align  256
 
 tileSheet:
 
