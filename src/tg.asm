@@ -38,8 +38,10 @@ KEY_WAIT        = ' '
 KEY_QUIT        = $1b
 
 ; tiles
-
-tilePlayerIdx = (tilePlayer - tileSheet) / TILE_SIZE
+tilePlayerId =          (tilePlayer1            - tileSheet) / TILE_SIZE
+tileDialogRightSMId =   (tileDialogRightSM      - tileSheet) / TILE_SIZE
+tileDialogRightMDId =   (tileDialogRightMD      - tileSheet) / TILE_SIZE
+tileDog2Id =            (tileDog2               - tileSheet) / TILE_SIZE
 
 ;------------------------------------------------
 ; Zero page usage
@@ -60,6 +62,9 @@ textPtr1    :=  $57
 
 .proc main
 
+    ; make sure we are in 40-column mode
+    lda     #$15
+    jsr     COUT
 
     ; Since draw-map draws the whole screen,
     ; no need to clear screen at startup
@@ -332,7 +337,7 @@ specialLoop:
     lda     #SCREEN_OFFSET+TILE_HEIGHT*2
     sta     tileY
 
-    lda     #tilePlayerIdx
+    lda     #tilePlayerId
     jsr     draw_tile
 
     ; Set display page
@@ -754,7 +759,7 @@ display:
     lda     state
     cmp     #1
     bne     :+
-    lda     #18
+    lda     #tileDialogRightSMId
     jsr     draw_tile
 
     lda     #<guardText1
@@ -766,7 +771,7 @@ display:
 
 :
     ; 2 = hows it going
-    lda     #19
+    lda     #tileDialogRightMDId
     jsr     draw_tile
     lda     #<guardText2
     sta     textPtr0
@@ -818,7 +823,7 @@ guardText2:
     cmp     #CACHE_LEFT
     beq     :+
     cmp     #CACHE_CENTER
-    beq     :+
+    beq     winning
 
     ; not near, reset state and exit
     lda     #0
@@ -830,7 +835,7 @@ guardText2:
     lda     gameTime
     and     #1
     beq     :+
-    lda     #12
+    lda     #tileDog2Id
     jsr     draw_tile
 :
 
@@ -858,6 +863,9 @@ guardText2:
 
     rts
 
+winning:
+    jmp     end_screen_80
+
 state:  .byte   0
 dogText1:
     .byte   $8d
@@ -880,29 +888,31 @@ dogText1:
     jsr     HOME
     jsr     inline_print
     StringQuoteReturn   "  @Good boy!@"
-    StringQuoteReturn   "             >=~y,,                      Congratulations, you found Askey!"
-    StringQuoteReturn   "          (;-=    C@/."
-    StringQuoteReturn   "        >^<-yrC-   \[ `-                     Thanks for playing!"
-    StringQuoteReturn   "  ;g@\`     ^^@    ]F   >,"
-    StringQuoteReturn   "  V~s             ^A     ]"
-    StringQuoteReturn   "   'v    ,=,   . ,@       L"
-    StringQuoteReturn   "      ,@--@*\>  [@       /@           _,>,ww~=~r-~+.c"
-    StringQuoteReturn   "            ]v  P,    ,=*}*-~,,,w=^@@@               ;@=c         ,-,c"
-    StringQuoteReturn   "            ] C  -@*@`    P                           @h.-]*=~~r@J<@"
-    StringQuoteReturn   "            [ |           C                             - *@@@*@"
-    StringQuoteReturn   "            C ]            y                            ]"
-    StringQuoteReturn   "            L J             \          -@-``'            L"
-    StringQuoteReturn   "            ]  L             -       /\       ,A[@Y,     ]"
-    StringQuoteReturn   "             )  v                   A    >wr@L   \  \;    @~"
-    StringQuoteReturn   "              ]w @.               yC.r@-`   >- ,<     `@v   ["
-    StringQuoteReturn   "                \S; ` @.   |   ,=@-     .~^-  C          t  C"
-    StringQuoteReturn   "                 \  ]`'[   [@@-         ^~=-'            ]  C"
-    StringQuoteReturn   "                 /  |  }   L                            /\  ]"
-    StringQuoteReturn   "              ]*-   /  |   C                            *^^^*"
-    StringQuoteReturn   "               @@@@-  r    |"
-    StringQuoteReturn   "                      '*==*                  Game by Paul Wasson, 2021"
-    .byte               0
-
+    StringQuoteReturn   "                >=~y,,                   Congratulations, you found Askey!"
+    StringQuoteReturn   "             (;-=    C@/."
+    StringQuoteReturn   "           >^<-yrC-   \[ `-                  Thanks for playing!"
+    StringQuoteReturn   "     ;g@\`     ^^@    ]F   >,"
+    StringQuoteReturn   "     V~s             ^A     ]"
+    StringQuoteReturn   "      'v    ,=,   . ,@       L"
+    StringQuoteReturn   "         ,@--@*\>  [@       /@           _,>,ww~=~r-~+.c"
+    StringQuoteReturn   "               ]v  P,    ,=*}*-~,,,w=^@@@               ;@=c         ,-,c"
+    StringQuoteReturn   "               ] C  -@*@`    P                           @h.-]*=~~r@J<@"
+    StringQuoteReturn   "               [ |           C                             - *@@@*@"
+    StringQuoteReturn   "               C ]            y                            ]"
+    StringQuoteReturn   "               L J             \          -@-``'            L"
+    StringQuoteReturn   "               ]  L             -       /\       ,A[@Y,     ]"
+    StringQuoteReturn   "                )  v                   A    >wr@L   \  \;    @~"
+    StringQuoteReturn   "                 ]w @.               yC.r@-`   >- ,<     `@v   ["
+    StringQuoteReturn   "                   \S; ` @.   |   ,=@-     .~^-  C          t  C"
+    StringQuoteReturn   "                    \  ]`'[   [@@-         ^~=-'            ]  C"
+    StringQuoteReturn   "                    /  |  }   L                            /\  ]"
+    StringQuoteReturn   "                 ]*-   /  |   C                            *^^^*"
+    StringQuoteReturn   "                  @@@@-  r    |"
+    StringQuoteReturn   "                         '*==*                     by Paul Wasson, 2021"
+    .byte               "-->",0
+    jsr     RDKEY
+    jsr     inline_print
+    .byte               " Goodbye <--",0
     jmp     MONZ
 .endproc
 
@@ -1062,7 +1072,7 @@ tileGrass:
     StringHi    "        "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
- ; tree1
+ tileTree1:
     StringHi    "   /\   "
     StringHi    "  //\\  "
     StringHi    " ///\\\ "
@@ -1071,7 +1081,7 @@ tileGrass:
     StringHi    "  ,||.  "
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
- ; tree2
+ tileTree2:
     StringHi    "   __   "
     StringHi    "  (, )  "
     StringHi    " (  , ) "
@@ -1080,7 +1090,7 @@ tileGrass:
     StringHi    "   ][   "
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
-; water
+tileWater1:
     StringHi    "( ) ( ) "
     StringHi    ") ( ) ( "
     StringHi    "( ) ( ) "
@@ -1089,7 +1099,7 @@ tileGrass:
     StringHi    ") ( ) ( "
     .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
-; boardwalk (horizontal)
+tileBoardwalkH:
     StringHi    "________"
     StringHi    "____|___"
     StringHi    "|_______"
@@ -1098,7 +1108,7 @@ tileGrass:
     StringHi    "____|___"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
-; boardwalk (vertical)
+tileBoardwalkV:
     StringHi    "|_|  | |"
     StringHi    "| |  |_|"
     StringHi    "| |__| |"
@@ -1107,7 +1117,7 @@ tileGrass:
     StringHi    "| |__| |"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
-; carpet (fancy)
+tileCarpetFancy:
     StringHi    "//\\//\\"
     StringHi    "<<>><<>>"
     StringHi    "\\//\\//"
@@ -1116,7 +1126,7 @@ tileGrass:
     StringHi    "\\//\\//"
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
-; water (alternate)
+tileWater2:
     StringHi    ") ( ) ( "
     StringHi    "( ) ( ) "
     StringHi    ") ( ) ( "
@@ -1125,7 +1135,7 @@ tileGrass:
     StringHi    "( ) ( ) "
     .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
-; sign
+tileSign:
     StringInv   "        "
     StringInv   "        "
     StringInv   "        "
@@ -1134,7 +1144,7 @@ tileGrass:
     StringHi    "  ,||.  "
     .byte   $80+0*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Special (0)
 
-; Guard
+tileGuard1:
     StringHi    "   ,_   "
     StringHi    "  (..)  "
     StringHi    "  (__) ^"
@@ -1143,7 +1153,7 @@ tileGrass:
     StringHi    "   ||  |"
     .byte   $80+1*4+1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Blocking, Special (1), animated
 
-; dog1
+tileDog1:
     StringHi    "        "
     StringHi    "        "
     StringHi    "     __ "
@@ -1152,7 +1162,7 @@ tileGrass:
     StringHi    "\\--\\  "
     .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
 
-; dog2
+tileDog2:
     StringHi    "        "
     StringHi    "        "
     StringHi    "     __ "
@@ -1161,8 +1171,7 @@ tileGrass:
     StringHi    "\\--\\  "
     .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
 
-; player (blink)
-tilePlayer:
+tilePlayer1:
     StringHiBG  "...--...",'.'
     StringHiBG  ". (--) .",'.'
     StringHiBG  ". -\/- .",'.'
@@ -1171,7 +1180,7 @@ tilePlayer:
     StringHiBG  ". |  | .",'.'
     .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; animated
 
-; Guard (animated)
+tileGuard2:
     StringHi    "   ,_   "
     StringHi    "  (..) ^"
     StringHi    "  (__) |"
@@ -1180,7 +1189,7 @@ tilePlayer:
     StringHi    "   ||   "
     .byte   $80+1*4+1,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Blocking, Special (1), animated
 
-; wall
+tileWall:
     StringInv   "    !   "
     StringInv   "____!___"
     StringInv   " !      "
@@ -1189,7 +1198,7 @@ tilePlayer:
     StringInv   "______!_"
     .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
-; carpet (plain)
+tileCarpet:
     StringHi    " /\  /\ "
     StringHi    "<  ><  >"
     StringHi    " \/  \/ "
@@ -1198,7 +1207,7 @@ tilePlayer:
     StringHi    " \/  \/ "
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
-; player (normal)
+tilePlayer2:
     StringHiBG  "...--...",'.'
     StringHiBG  ". (oo) .",'.'
     StringHiBG  ". -\/- .",'.'
@@ -1207,7 +1216,7 @@ tilePlayer:
     StringHiBG  ". |  | .",'.'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; padding
 
-; DialogRightSM
+tileDialogRightSM:
     StringHiBG  "~______~",'~'
     StringHiBG  "<      |",'~'
     StringHiBG  "|      |",'~'
@@ -1216,7 +1225,7 @@ tilePlayer:
     StringHiBG  "~~~~~~~~",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-; DialogRightMD
+tileDialogRightMD:
     StringHiBG  "~______~",'~'
     StringHiBG  "<      |",'~'
     StringHiBG  "|      |",'~'
@@ -1225,7 +1234,7 @@ tilePlayer:
     StringHiBG  "|______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-; DialogRightLG1
+tileDialogRightLG1:
     StringHiBG  "~_______",'~'
     StringHiBG  "<       ",'~'
     StringHiBG  "|       ",'~'
@@ -1234,7 +1243,7 @@ tilePlayer:
     StringHiBG  "|_______",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-; DialogRightLG2
+tileDialogRightLG2:
     StringHiBG  "_______~",'~'
     StringHiBG  "       |",'~'
     StringHiBG  "       |",'~'
@@ -1242,6 +1251,7 @@ tilePlayer:
     StringHiBG  "       |",'~'
     StringHiBG  "_______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
+
 
 ; Jump table for special tiles
 .align  256
