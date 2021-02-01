@@ -53,6 +53,10 @@ KEY_QUIT        = $1b
 tilePlayerId =          (tilePlayer1            - tileSheet) / TILE_SIZE
 tileDialogRightSMId =   (tileDialogRightSM      - tileSheet) / TILE_SIZE
 tileDialogRightMDId =   (tileDialogRightMD      - tileSheet) / TILE_SIZE
+
+tileDialogLId       =   (tileDialogL            - tileSheet) / TILE_SIZE
+tileDialogRId       =   (tileDialogR            - tileSheet) / TILE_SIZE
+
 tileDog2Id =            (tileDog2               - tileSheet) / TILE_SIZE
 
 ; Player starting location
@@ -666,6 +670,143 @@ nextX:      .byte   0
 
 .endproc
 
+
+;-----------------------------------------------------------------------------
+; draw_char
+; y = row
+; a = col
+; x = character
+;-----------------------------------------------------------------------------
+.proc draw_char
+    clc
+    adc     lineOffset,y    ; + lineOffset
+    sta     screenPtr0    
+    lda     linePage,y
+    adc     drawPage        ; previous carry should be clear
+    sta     screenPtr1
+    ldy     #0
+    txa
+    sta     (screenPtr0),y
+    rts
+.endproc
+
+;-----------------------------------------------------------------------------
+; draw_dialog
+;-----------------------------------------------------------------------------
+.proc draw_dialog
+
+    sta     dialogIndex
+
+    ; Position the dialog box based on position
+    lda     mapCacheIndex
+
+    ; if above, use tile 1,0
+    cmp     #CACHE_UP
+    bne     :+
+
+    lda     #TILE_HEIGHT*0  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*1   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 2,1
+    lda     #TILE_WIDTH*2
+    ldy     #TILE_HEIGHT*1
+    ldx     #'\' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; if left, use tile 0,1
+    cmp     #CACHE_LEFT
+    bne     :+
+
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*0   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 1,2
+    lda     #TILE_WIDTH*1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'\' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; if right, use tile 3,1
+    cmp     #CACHE_RIGHT
+    bne     :+
+
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*3   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 3,2
+    lda     #TILE_WIDTH*4-1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'/' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+    ; Assume it down
+    ; Use tile 3,3
+    lda     #TILE_HEIGHT*3  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*3   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 2,3
+    ; (down one row)
+    lda     #TILE_WIDTH*3-1
+    ldy     #TILE_HEIGHT*3+1
+    ldx     #'_' + $80
+    jsr     draw_char
+
+dialog:
+    ; draw box
+    lda     #tileDialogLId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileDialogRId
+    jsr     draw_tile
+
+    ; set text starting point
+    inc     textX
+    inc     textY
+
+    ; look up string
+    ldy     dialogIndex
+    lda     dialogTable,y
+    sta     textPtr0
+    iny
+    lda     dialogTable,y
+    sta     textPtr1
+
+    ; draw text
+    jmp     tile_print      ; link return
+
+dialogIndex:    .byte   0
+
+.endproc
+
+
 ;-----------------------------------------------------------------------------
 ; tile_handler_sign
 ;-----------------------------------------------------------------------------
@@ -773,6 +914,8 @@ signTrail:
     beq     :+
     cmp     #CACHE_RIGHT
     beq     :+
+    cmp     #CACHE_LEFT
+    beq     :+
     cmp     #CACHE_DOWN
     bne     done
 :
@@ -800,42 +943,19 @@ display:
 :
 
     ; Display message
-    ; move 1 space to the right
-    clc
-    lda     tileX
-    adc     #TILE_WIDTH
-    sta     tileX
-    sta     textX
-
-    ; set text pointers
-    inc     textX
-    inc     textY
 
     ; 1 = hi
     lda     state
     cmp     #1
     bne     :+
-    lda     #tileDialogRightSMId
-    jsr     draw_tile
-
-    lda     #<guardText1
-    sta     textPtr0
-    lda     #>guardText1
-    sta     textPtr1
-    jmp     tile_print
-    rts
+    lda     #dialogGuard1
+    jmp     draw_dialog     ; link return
 
 :
     ; 2 = hows it going
-    lda     #tileDialogRightMDId
-    jsr     draw_tile
-    lda     #<guardText2
-    sta     textPtr0
-    lda     #>guardText2
-    sta     textPtr1
-    jmp     tile_print
 
-    rts
+    lda     #dialogGuard2
+    jmp     draw_dialog     ; link return
 
 done:
     ; reset state if player moves
@@ -845,19 +965,6 @@ done:
 
 state:  .byte 0
 
-guardText1:
-    .byte   $8d
-    StringHi    "Hi!"
-    .byte   0
-
-guardText2:
-    .byte   $8d
-    StringHi    "How's"
-    .byte   $8d
-    StringHi    "it"
-    .byte   $8d
-    StringHi    "going?"
-    .byte   0
 .endproc
 
 
@@ -1079,6 +1186,30 @@ linePage:
     .byte   >$0750
     .byte   >$07D0
 
+;-----------------------------------------------------------------------------
+; Dialog
+;-----------------------------------------------------------------------------
+
+dialogGuard1 = 0
+dialogGuard2 = 2
+
+dialogTable:
+    .word   guardText1      ; 0 = Hi!
+    .word   guardText2      ; 2 = How's it going
+
+guardText1:
+    .byte   $8d
+    StringHi    "Hi!"
+    .byte   0
+
+guardText2:
+    .byte   $8d
+    StringHi    "How's"
+    .byte   $8d
+    StringHi    "it"
+    .byte   $8d
+    StringHi    "going?"
+    .byte   0
 
 ;-----------------------------------------------------------------------------
 ; Game Map

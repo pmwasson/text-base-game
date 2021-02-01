@@ -360,7 +360,7 @@ tilePlayer1:
     .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; animated
 
 tileFixer1:
-    StringHi    " --==   "
+    StringHi    "   ==-- "
     StringHi    "  (..)  "
     StringHi    "  (__)  "
     StringHi    " \/{}\  "
@@ -396,7 +396,7 @@ tilePlayer2:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; padding
 
 tileFixer2:
-    StringHi    " --==   "
+    StringHi    "   ==-- "
     StringHi    "  (..)  "
     StringHi    "  (__)  "
     StringHi    "  /{}\  "
@@ -591,16 +591,16 @@ tileDialogRightMD:
     StringHiBG  "|______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-tileDialogRightLG1:
+tileDialogL:
     StringHiBG  "~_______",'~'
-    StringHiBG  "<       ",'~'
+    StringHiBG  "|       ",'~'
     StringHiBG  "|       ",'~'
     StringHiBG  "|       ",'~'
     StringHiBG  "|       ",'~'
     StringHiBG  "|_______",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-tileDialogRightLG2:
+tileDialogR:
     StringHiBG  "_______~",'~'
     StringHiBG  "       |",'~'
     StringHiBG  "       |",'~'
@@ -609,7 +609,34 @@ tileDialogRightLG2:
     StringHiBG  "_______|",'~'
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
 
-    .res    64*(24-4)
+tileThoughtL:
+    StringHiBG  "~~______",'~'
+    StringHiBG  "~(      ",'~'
+    StringHiBG  "(       ",'~'
+    StringHiBG  "(       ",'~'
+    StringHiBG  "(       ",'~'
+    StringHiBG  "~(______",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
+
+tileThoughtM:
+    StringHiBG  "________",'~'
+    StringHiBG  "        ",'~'
+    StringHiBG  "        ",'~'
+    StringHiBG  "        ",'~'
+    StringHiBG  "        ",'~'
+    StringHiBG  "________",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
+
+tileThoughtR:
+    StringHiBG  "______~~",'~'
+    StringHiBG  "      )~",'~'
+    StringHiBG  "       )",'~'
+    StringHiBG  "       )",'~'
+    StringHiBG  "       )",'~'
+    StringHiBG  "______)~",'~'
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0             ; padding
+
+    .res    64*(24-7)
 
 ; 128+ Objects
 
