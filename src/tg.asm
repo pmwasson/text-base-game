@@ -675,69 +675,65 @@ nextX:      .byte   0
     ; choose message
     lda     specialX
 
-    ; sign 1
-    cmp     #8
+    ; Mr Fancy
+    cmp     #22
     bne     :+  
-    lda     #<signText1
+    lda     #<signTextFancy
     sta     textPtr0
-    lda     #>signText1
+    lda     #>signTextFancy
     sta     textPtr1
     jmp     tile_print
 :
-    ; sign 2
-    cmp     #9
+    ; Duck Pond
+    cmp     #35
     bne     :+  
-    lda     #<signText2
+    lda     #<signDuck
     sta     textPtr0
-    lda     #>signText2
+    lda     #>signDuck
     sta     textPtr1
     jmp     tile_print
 :
-    ; sign 3
-    cmp     #10
+    ; Forest Trail
+    cmp     #51
     bne     :+  
-    lda     #<signText3
+    lda     #<signTrail
     sta     textPtr0
-    lda     #>signText3
+    lda     #>signTrail
     sta     textPtr1
     jmp     tile_print
 :
     ; default
-    lda     #<signText0
+    lda     #<signTextDefault
     sta     textPtr0
-    lda     #>signText0
+    lda     #>signTextDefault
     sta     textPtr1
     jmp     tile_print
 
 
-signText0:
+signTextDefault:
     .byte   $8d
     StringInv   "  ????"
     .byte   0
 
-signText1:
+signTextFancy:
     .byte   $8d
-    StringInv   "TUTORIAL"
+    StringInv   "MR FANCY"
     .byte   $8d
-    StringInv   "  --->  "
+    StringInv   " HOUSE"
     .byte   0
 
-signText2:
-    StringInv   "  WASD"
+signDuck:
     .byte   $8d
-    StringInv   " MOVES,"
+    StringInv   "  DUCK"
     .byte   $8d
-    StringInv   " SPACE "
-    .byte   $8d
-    StringInv   " ACTION"
+    StringInv   "  POND"
     .byte   0
 
-signText3:
-    StringInv   " STAND"
+signTrail:
     .byte   $8d
-    StringInv   " BELOW"
+    StringInv   " FOREST"
     .byte   $8d
-    StringInv   " TO TALK"
+    StringInv   " TRAIL"
     .byte   0
 
 .endproc
