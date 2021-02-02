@@ -40,6 +40,10 @@ tile_jump_table:
     nop
     jmp     tile_handler_bridge             ; $a4
     nop
+    jmp     tile_handler_mailbox            ; $a8
+    nop
+    jmp     tile_handler_vase               ; $ac
+    nop
 
 ;-----------------------------------------------------------------------------
 ; Tile data
@@ -281,16 +285,25 @@ tileDogDish:
     StringHi    "{__}    " 
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ;
 
-tileMailBox:
+tileMailBox1:
     StringHi    "   ____ "                    
     StringHi    "  /^\--\"                    
     StringHi    "  |_!__|"                    
     StringHi    "    ||  "                    
     StringHi    "    ||  " 
     StringHi    "   ,||. " 
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $a9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
-    .res    64*(8 - 5)
+tileMailBox2:
+    StringHi    "   ____ "                    
+    StringHi    "  /^\--\"                    
+    StringHi    "  |[!__|"                    
+    StringHi    "    ||  "                    
+    StringHi    "    ||  " 
+    StringHi    "   ,||. " 
+    .byte   $a9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+
+    .res    64*(8 - 6)
 
 ; 48 .. 63 Decorations (Indoors)
 
@@ -301,7 +314,7 @@ tileVase:
     StringHi    " /.:.\  "
     StringHi    " (^^^)  "
     StringHi    "  \_/   "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $ac,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; special
 
 tileVaseBroken:
     StringHi    "        "
@@ -310,7 +323,7 @@ tileVaseBroken:
     StringHi    " ,   .  "
     StringHi    " ( \%^. "
     StringHi    "' \_/ \ "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 tileTable:
     StringHi    "  ______"

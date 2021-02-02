@@ -68,10 +68,14 @@ tileDog2Id          =   (tileDog2               - tileSheet) / TILE_SIZE
 
 tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
 
+tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
 ; Player starting location
 START_X         = 2   
 START_Y         = 3
+
+; Misc
+VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
 
 ;------------------------------------------------
 ; Zero page usage
@@ -225,6 +229,14 @@ bump:
     lda     #0
     sta     stateBridge
 
+    lda     #0
+    ldy     #VASE_COUNT-1
+:
+    sta     stateVase,y
+    dey
+    bpl     :-
+    sta     stateAnyVase
+
     rts
 
 .endproc
@@ -334,6 +346,22 @@ loop2:
     jsr     sound_tone 
     lda     #35         ; tone
     ldx     #100        ; duration
+    jmp     sound_tone  ; link return
+.endproc
+
+
+;-----------------------------------------------------------------------------
+; sound_crash
+;-----------------------------------------------------------------------------
+.proc sound_crash
+    lda     #35         ; tone
+    ldx     #100        ; duration
+    jsr     sound_tone 
+    lda     #100        ; tone
+    ldx     #20         ; duration
+    jsr     sound_tone 
+    lda     #200        ; tone
+    ldx     #25         ; duration
     jmp     sound_tone  ; link return
 .endproc
 
@@ -1011,6 +1039,41 @@ signTrail:
 ; tile_handler_door
 ;-----------------------------------------------------------------------------
 .proc tile_handler_door
+
+    ; is the player next to the door?
+    jsr     tile_adjacent
+    bcc     on_door
+
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogDoor
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+    ; Play a sound as the player steps through a door
+
+on_door:
     ; is player on the door?
     lda     mapCacheIndex
     cmp     #CACHE_CENTER
@@ -1028,6 +1091,9 @@ signTrail:
     rts
 :
     jmp     sound_door      ; link return
+
+state:  .byte 0
+
 .endproc
 
 ;-----------------------------------------------------------------------------
@@ -1246,6 +1312,7 @@ done:
 state:  .byte 0
 
 .endproc
+
 ;-----------------------------------------------------------------------------
 ; tile_handler_dog_house
 ;-----------------------------------------------------------------------------
@@ -1273,6 +1340,45 @@ display:
 
     ; Display message
     lda     #dialogDogHouse
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_mailbox
+;-----------------------------------------------------------------------------
+.proc tile_handler_mailbox
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogMailbox1
     jmp     draw_thought     ; link return
 
 done:
@@ -1444,6 +1550,114 @@ on_hammer:
 .endproc
 
 ;-----------------------------------------------------------------------------
+; tile_handler_vase
+;-----------------------------------------------------------------------------
+; stateVase[]: 0 = good, -1 = picking up, 1 = broken
+
+; I have a bug, that if there are 2 vases shown the local state gets
+; reset for the display.  It can be fixed by using an array for the
+; display state, but I chose to work around it by changing the map
+; to not have the vases that close together.
+
+.proc tile_handler_vase
+    jsr     tile_handler_coord
+
+    ; show broken vase if state not zero
+    lda     specialX
+    and     #VASE_COUNT-1
+    sta     vaseIndex
+    tax
+    lda     stateVase,x
+    beq     :+
+
+    lda     #tileVaseBrokenId
+    jsr     draw_tile
+:
+
+    ; update state
+
+    ; check if player on vase
+    lda     mapCacheIndex
+    cmp     #CACHE_CENTER
+    beq     on_vase
+
+    ; if not, and state is -1, change to 1
+    ldx     vaseIndex
+    lda     stateVase,x
+    bpl     :+
+    lda     #1
+    sta     stateVase,x
+:
+
+    ; use local state for dialog
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    ; toggle local state
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+
+    ldx     vaseIndex
+    lda     stateVase,x
+    beq     :+
+    lda     #dialogVase3
+    jmp     draw_thought     ; link return
+
+:
+    lda     #dialogVase1
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+
+on_vase:
+    ; if state -1, display message
+    ldx     vaseIndex
+    lda     stateVase,x
+    bpl     :+
+
+    lda     #dialogVase2
+    jsr     draw_thought
+    rts
+:
+    ; if state 0, change to -1
+    bne     :+
+    dec     stateVase,x
+    jsr     sound_pickup
+    jsr     sound_crash
+    lda     stateAnyVase
+    ora     #1
+    sta     stateAnyVase
+:
+    rts
+  
+vaseIndex:  .byte   0
+state:      .byte   0   ; only use for dialog
+
+.endproc
+
+
+;-----------------------------------------------------------------------------
 ; tile_handler_bridge
 ;-----------------------------------------------------------------------------
 ; stateBridge: 0 = broken, 1 = fixed
@@ -1539,9 +1753,10 @@ mapCache:   .res    SCREEN_WIDTH*SCREEN_HEIGHT
 
 ; game state
 
-stateHammer: .byte   0
-stateBridge: .byte   0
-
+stateHammer:    .byte  0
+stateBridge:    .byte  0
+stateAnyVase:   .byte  0
+stateVase:      .res   VASE_COUNT
 
 
 ; Lookup tables
@@ -1652,6 +1867,11 @@ dialogFixer2 =      9*2
 dialogFixer3 =      10*2
 dialogFixer4 =      11*2
 dialogFixer5 =      12*2
+dialogMailbox1 =    13*2
+dialogVase1 =       14*2
+dialogVase2 =       15*2
+dialogVase3 =       16*2
+dialogDoor =        17*2
 
 dialogTable:
     .word   textGuard1
@@ -1667,6 +1887,11 @@ dialogTable:
     .word   textFixer3
     .word   textFixer4
     .word   textFixer5
+    .word   textMailbox1
+    .word   textVase1
+    .word   textVase2
+    .word   textVase3
+    .word   textDoor
 
 textGuard1:
     .byte   $8d
@@ -1774,6 +1999,38 @@ textFixer5:
     StringHi    "Hope you can"
     .byte   $8d
     StringHi    "find your dog."
+    .byte   0
+
+textMailbox1:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "The mailbox is empty."
+    .byte   0
+
+textVase1:
+    .byte   $8d
+    StringHi    "That vase looks pretty"
+    .byte   $8d
+    StringHi    "      fancy!"
+    .byte   0
+
+textVase2:
+    .byte   $8d
+    StringHi    "      Oh no!"
+    .byte   $8d
+    StringHi    " The vase slipped!"
+    .byte   0
+
+textVase3:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "Oh man, its busted."
+    .byte   0
+
+textDoor:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "The door is unlocked."
     .byte   0
 
 ;-----------------------------------------------------------------------------
