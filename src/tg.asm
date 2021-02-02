@@ -1015,8 +1015,6 @@ signTextDefault:
 signTextFancy:
     .byte   $8d
     StringInv   "MR FANCY"
-    .byte   $8d
-    StringInv   " HOUSE"
     .byte   0
 
 signDuck:
@@ -1418,6 +1416,85 @@ display:
 
     ; Display message
     lda     #dialogFence
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_bed1
+;-----------------------------------------------------------------------------
+.proc tile_handler_bed1
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogBed1
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+
+
+;-----------------------------------------------------------------------------
+; tile_handler_bed2
+;-----------------------------------------------------------------------------
+.proc tile_handler_bed2
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogBed2
     jmp     draw_thought     ; link return
 
 done:
@@ -1872,6 +1949,8 @@ dialogVase1 =       14*2
 dialogVase2 =       15*2
 dialogVase3 =       16*2
 dialogDoor =        17*2
+dialogBed1 =        18*2
+dialogBed2 =        19*2
 
 dialogTable:
     .word   textGuard1
@@ -1892,6 +1971,8 @@ dialogTable:
     .word   textVase2
     .word   textVase3
     .word   textDoor
+    .word   textBed1
+    .word   textBed2
 
 textGuard1:
     .byte   $8d
@@ -2031,6 +2112,18 @@ textDoor:
     .byte   $8d
     .byte   $8d
     StringHi    "The door is unlocked."
+    .byte   0
+
+textBed1:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "  I'm not tired."
+    .byte   0
+
+textBed2:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "   Not sleepy."
     .byte   0
 
 ;-----------------------------------------------------------------------------

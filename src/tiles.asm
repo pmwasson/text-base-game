@@ -44,7 +44,10 @@ tile_jump_table:
     nop
     jmp     tile_handler_vase               ; $ac
     nop
-
+    jmp     tile_handler_bed1               ; $b0
+    nop
+    jmp     tile_handler_bed2               ; $b4
+    nop
 ;-----------------------------------------------------------------------------
 ; Tile data
 ;-----------------------------------------------------------------------------
@@ -350,7 +353,7 @@ tileChair:
     StringHi    "()____()"
     StringHi    "||____||"
     StringHi    " W    W "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 tileBed1:
     StringHi    "  ()___ "
@@ -359,7 +362,7 @@ tileBed1:
     StringHi    "||------"
     StringHi    "||______"
     StringHi    "||      "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $b1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0    ; blocking
 
 tileBed2:
     StringHi    "        "
@@ -368,7 +371,7 @@ tileBed2:
     StringHi    "---()//|"
     StringHi    "___||/  "
     StringHi    "   ||   "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $b5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0    ; blocking
 
     .res    64*(16 - 7)
 
