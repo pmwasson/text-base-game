@@ -51,11 +51,18 @@ KEY_QUIT        = $1b
 
 ; tiles
 tilePlayerId =          (tilePlayer1            - tileSheet) / TILE_SIZE
+
+tileGrassId =           (tileGrass              - tileSheet) / TILE_SIZE
+
 tileDialogRightSMId =   (tileDialogRightSM      - tileSheet) / TILE_SIZE
 tileDialogRightMDId =   (tileDialogRightMD      - tileSheet) / TILE_SIZE
 
 tileDialogLId       =   (tileDialogL            - tileSheet) / TILE_SIZE
 tileDialogRId       =   (tileDialogR            - tileSheet) / TILE_SIZE
+
+tileThoughtLId      =   (tileThoughtL           - tileSheet) / TILE_SIZE
+tileThoughtMId      =   (tileThoughtM           - tileSheet) / TILE_SIZE
+tileThoughtRId      =   (tileThoughtR           - tileSheet) / TILE_SIZE
 
 tileDog2Id =            (tileDog2               - tileSheet) / TILE_SIZE
 
@@ -89,11 +96,8 @@ textPtr1    :=  $57
     ; Since draw-map draws the whole screen,
     ; no need to clear screen at startup
 
-    ; set starting position
-    lda     #START_X
-    sta     mapX
-    lda     #START_Y
-    sta     mapY
+    ; reset game state
+    jsr     reset
 
     jmp     gameLoop
 
@@ -196,6 +200,33 @@ bump:
 
 
 ;-----------------------------------------------------------------------------
+; reset
+;-----------------------------------------------------------------------------
+; Reset game state
+; Note, this is a good place to debug/cheat since you can modify to start
+; in whatever state you wish.
+
+.proc reset
+
+    ; set starting position
+    lda     #START_X
+    sta     mapX
+    lda     #START_Y
+    sta     mapY
+
+    ; Even though all the state is zero, using separate LDAs so the
+    ; state can be hacked from the monitor
+
+    lda     #0
+    sta     stateHammer
+    lda     #0
+    sta     stateBridge
+
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
 ; check_movement
 ;-----------------------------------------------------------------------------
 ; X = location to check
@@ -288,6 +319,20 @@ loop2:
     jmp     sound_tone  ; link returns
 .endproc
 
+;-----------------------------------------------------------------------------
+; sound_pickup
+;-----------------------------------------------------------------------------
+.proc sound_pickup
+    lda     #200        ; tone
+    ldx     #25         ; duration
+    jsr     sound_tone 
+    lda     #100        ; tone
+    ldx     #20         ; duration
+    jsr     sound_tone 
+    lda     #35         ; tone
+    ldx     #100        ; duration
+    jmp     sound_tone  ; link return
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; get_key
@@ -613,6 +658,28 @@ temp:       .byte   0
 .endproc
 
 ;-----------------------------------------------------------------------------
+; tile_adjacent
+;-----------------------------------------------------------------------------
+; Set carry bit if mapCacheIndex is next to player
+.proc tile_adjacent
+    lda     mapCacheIndex
+    cmp     #CACHE_UP
+    beq     :+
+    cmp     #CACHE_DOWN
+    beq     :+
+    cmp     #CACHE_RIGHT
+    beq     :+
+    cmp     #CACHE_LEFT
+    beq     :+
+    clc
+    rts
+:
+    sec
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
 ; tile_print
 ;-----------------------------------------------------------------------------
 .proc tile_print
@@ -806,6 +873,64 @@ dialogIndex:    .byte   0
 
 .endproc
 
+;-----------------------------------------------------------------------------
+; draw_thought
+;-----------------------------------------------------------------------------
+.proc draw_thought
+
+    sta     dialogIndex
+
+    ; use tile 1,1
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*1   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw thought bubble directly on screen
+    ; Upper right of tile 2,2
+    lda     #TILE_WIDTH*3-1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'o' + $80
+    jsr     draw_char
+
+dialog:
+    ; draw box
+    lda     #tileThoughtLId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileThoughtMId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileThoughtRId
+    jsr     draw_tile
+
+    ; set text starting point
+    inc     textX
+    inc     textX
+    inc     textY
+
+    ; look up string
+    ldy     dialogIndex
+    lda     dialogTable,y
+    sta     textPtr0
+    iny
+    lda     dialogTable,y
+    sta     textPtr1
+
+    ; draw text
+    jmp     tile_print      ; link return
+
+dialogIndex:    .byte   0
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_sign
@@ -908,17 +1033,8 @@ signTrail:
 .proc tile_handler_guard
     jsr     tile_handler_coord
 
-    ; check if guard is above or to the right of the player
-    lda     mapCacheIndex
-    cmp     #CACHE_UP
-    beq     :+
-    cmp     #CACHE_RIGHT
-    beq     :+
-    cmp     #CACHE_LEFT
-    beq     :+
-    cmp     #CACHE_DOWN
-    bne     done
-:
+    jsr     tile_adjacent
+    bcc     done
 
     ; check if hit action key
     lda     lastKey
@@ -967,6 +1083,243 @@ state:  .byte 0
 
 .endproc
 
+
+;-----------------------------------------------------------------------------
+; tile_handler_jr
+;-----------------------------------------------------------------------------
+.proc tile_handler_jr
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    inc     state
+    lda     state
+    cmp     #4          ; 3 state: none + 2 dialog
+    bmi     :+
+    lda     #0
+    sta     state
+    jmp     display
+:   
+    jsr     sound_talk
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogJr1
+    jmp     draw_dialog     ; link return
+:
+
+    cmp     #2
+    bne     :+
+    lda     #dialogJr2
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogJr3
+    jmp     draw_dialog     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+
+
+;-----------------------------------------------------------------------------
+; tile_handler_fixer
+;-----------------------------------------------------------------------------
+; uses 3 state, local state, stateHammer and stateBridge
+.proc tile_handler_fixer
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    inc     state
+    lda     state
+    cmp     #3          ; 3 state: none + 2 dialog
+    bmi     :+
+    lda     #0
+    sta     state
+    jmp     display
+:   
+    jsr     sound_talk
+
+    ; fix bridge after hitting wait
+    ; if hammer set and state 2, mark bridge fixed
+    lda     stateHammer
+    beq     :+
+    lda     state
+    cmp     #2
+    bne     :+
+    lda     stateBridge
+    ora     #1
+    sta     stateBridge
+:
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+
+    lda     stateHammer
+    bne     foundHammer
+
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogFixer1
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogFixer2
+    jmp     draw_dialog     ; link return
+
+foundHammer:
+    lda     stateBridge
+    bne     bridgeFixed
+    lda     #dialogFixer3
+    jmp     draw_dialog     ; link return
+
+bridgeFixed:
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogFixer4
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogFixer5
+    jmp     draw_dialog     ; link return
+
+done:
+
+    ; fix bridge if state not zero and found hammer
+    ; this handles the case of the player walking away
+    lda     stateHammer
+    beq     :+
+    lda     state
+    beq     :+
+    lda     stateBridge
+    ora     #1
+    sta     stateBridge
+:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+;-----------------------------------------------------------------------------
+; tile_handler_dog_house
+;-----------------------------------------------------------------------------
+.proc tile_handler_dog_house
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogDogHouse
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_fence
+;-----------------------------------------------------------------------------
+.proc tile_handler_fence
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     done
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    lda     state
+    eor     #1
+    sta     state
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    ; Display message
+    lda     #dialogFence
+    jmp     draw_thought     ; link return
+
+done:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_dog
@@ -1036,6 +1389,55 @@ dogText1:
     .byte   0
 
 
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_hammer
+;-----------------------------------------------------------------------------
+; stateHammer: 0 = hammer on ground, -1 = picking up, 1 = picked up
+
+.proc tile_handler_hammer
+    jsr     tile_handler_coord
+
+    ; clear hammer display if state not zero
+    lda     stateHammer
+    beq     :+
+
+    lda     #tileGrassId
+    jsr     draw_tile
+:
+
+    ; update state
+
+    ; check if player on hammer
+    lda     mapCacheIndex
+    cmp     #CACHE_CENTER
+    beq     on_hammer
+
+    ; if not, and state is -1, change to 1
+    lda     stateHammer
+    bpl     :+
+    lda     #1
+    sta     stateHammer
+:
+    rts
+
+on_hammer:
+    ; if state -1, display message
+    lda     stateHammer
+    bpl     :+
+
+    lda     #dialogHammer
+    jsr     draw_thought
+    rts
+:
+    ; if state 0, change to -1
+    bne     :+
+    dec     stateHammer
+    jsr     sound_pickup
+:
+    rts
+  
 .endproc
 
 
@@ -1108,6 +1510,12 @@ mapCacheIndex:
             .byte   0
 
 mapCache:   .res    SCREEN_WIDTH*SCREEN_HEIGHT
+
+; game state
+
+stateHammer: .byte   0
+stateBridge: .byte   0
+
 
 
 ; Lookup tables
@@ -1190,25 +1598,156 @@ linePage:
 ; Dialog
 ;-----------------------------------------------------------------------------
 
-dialogGuard1 = 0
-dialogGuard2 = 2
+; Standard dialog boxes are 14 wide and 4 high
+;   ..............
+;   ..............
+;   ..............
+;   ..............
+;
+; Thought bubbles are 20 wide and 4 high. (Can go 21 wide after first row)
+;   .................... 
+;   .................... 
+;   .................... 
+;   .................... 
+;
+; Could get 1 more row if use overwrite bottom of the box.  Use _ for spaces.
+; Use CR with upper bit set ($8D) to go to the next line.
+
+dialogGuard1 =      0*2
+dialogGuard2 =      1*2
+dialogDogHouse =    2*2
+dialogFence =       3*2
+dialogHammer =      4*2
+dialogJr1 =         5*2
+dialogJr2 =         6*2
+dialogJr3 =         7*2
+dialogFixer1 =      8*2
+dialogFixer2 =      9*2
+dialogFixer3 =      10*2
+dialogFixer4 =      11*2
+dialogFixer5 =      12*2
 
 dialogTable:
-    .word   guardText1      ; 0 = Hi!
-    .word   guardText2      ; 2 = How's it going
+    .word   textGuard1
+    .word   textGuard2
+    .word   textDogHouse
+    .word   textFence
+    .word   textHammer
+    .word   textJr1
+    .word   textJr2
+    .word   textJr3
+    .word   textFixer1
+    .word   textFixer2
+    .word   textFixer3
+    .word   textFixer4
+    .word   textFixer5
 
-guardText1:
+textGuard1:
     .byte   $8d
-    StringHi    "Hi!"
+    .byte   $8d
+    StringHi    "     Hi!"
     .byte   0
 
-guardText2:
+textGuard2:
     .byte   $8d
-    StringHi    "How's"
+    StringHi    "    How's"
     .byte   $8d
-    StringHi    "it"
+    StringHi    "  it going?"
+    .byte   0
+
+textDogHouse:
     .byte   $8d
-    StringHi    "going?"
+    .byte   $8d
+    StringHi    "  Where is Askey?"
+    .byte   0
+
+textFence:
+    .byte   $8d
+    StringHi    " Oh no! There is a"
+    .byte   $8d
+    StringHi    " hole in the fence."
+    .byte   0
+
+textHammer:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "    Hammer time!"
+    .byte   0
+
+; JR
+
+textJr1:
+    .byte   $8d
+    StringHi    " Sorry, but I"
+    .byte   $8d
+    StringHi    " haven't seen"
+    .byte   $8d
+    StringHi    " Askey today."
+    .byte   0
+
+textJr2:
+    .byte   $8d
+    StringHi    "That sure was"
+    .byte   $8d
+    StringHi    "a bad storm"
+    .byte   $8d
+    StringHi    "last night."
+    .byte   0
+
+textJr3:
+    .byte   $8d
+    StringHi    " The storm"
+    .byte   $8d
+    StringHi    " took out the"
+    .byte   $8d
+    StringHi    " bridge"
+    .byte   0
+
+; Fixer
+
+textFixer1:
+    StringHi    "I came to fix"
+    .byte   $8d
+    StringHi    "the bridge."
+    .byte   $8d
+    StringHi    "but I lost my"
+    .byte   $8d
+    StringHi    "hammer."
+    .byte   0
+
+textFixer2:
+    .byte   $8d
+    StringHi    " I think it"
+    .byte   $8d
+    StringHi    " might be in"
+    .byte   $8d
+    StringHi    " the forest."
+    .byte   0
+
+textFixer3:
+    StringHi    "You found my"
+    .byte   $8d
+    StringHi    "hammer! I'll"
+    .byte   $8d
+    StringHi    "get this fixed"
+    .byte   $8d
+    StringHi    "in no time."
+    .byte   0
+
+textFixer4:
+    .byte   $8d
+    StringHi    "  Thanks for "
+    .byte   $8d
+    StringHi    "  finding my"
+    .byte   $8d
+    StringHi    "  hammer."
+    .byte   0
+
+textFixer5:
+    .byte   $8d
+    StringHi    "Hope you can"
+    .byte   $8d
+    StringHi    "find your dog."
     .byte   0
 
 ;-----------------------------------------------------------------------------

@@ -18,17 +18,24 @@
 
 tile_jump_table:
 
-    jmp     tile_handler_sign
+    jmp     tile_handler_sign               ; $80
     nop
-    jmp     tile_handler_guard
+    jmp     tile_handler_guard              ; $84
     nop
-    jmp     tile_handler_dog
+    jmp     tile_handler_dog                ; $88
     nop
-    jmp     tile_handler_door
+    jmp     tile_handler_door               ; $8c
     nop
-
-    ; fill rest with BRK
-    .res    256-5,0
+    jmp     tile_handler_dog_house          ; $90
+    nop
+    jmp     tile_handler_fence              ; $94
+    nop
+    jmp     tile_handler_hammer             ; $98
+    nop
+    jmp     tile_handler_jr                 ; $9c
+    nop
+    jmp     tile_handler_fixer              ; $a0
+    nop
 
 ;-----------------------------------------------------------------------------
 ; Tile data
@@ -150,7 +157,7 @@ tileFenceHole:
     .byte       $20,$a0,$a0,$a0,$20,$20,$3a,$20
     StringHi    "      | "
     StringHi    "        "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $80+5*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
     .res    64*(8 - 5)
 
@@ -259,7 +266,7 @@ tileDogHouse:
     StringHi    "|==^==| "
     StringHi    "|=/ \=| "
     StringHi    "|=| |=| "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $80+4*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
 tileDogDish:
     StringHi    "        " 
@@ -360,13 +367,13 @@ tilePlayer1:
     .byte   0,$3f,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; animated
 
 tileFixer1:
-    StringHi    "   ==-- "
+    StringHi    " --==   "
     StringHi    "  (..)  "
     StringHi    "  (__)  "
     StringHi    " \/{}\  "
     StringHi    "   {} \ "
     StringHi    "   /\   "
-    .byte   $85,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Blocking, Special (1), animated
+    .byte   $a1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Blocking, Special (1), animated
 
 tileMrFancy1:
     StringHi    "   ..   "
@@ -396,13 +403,13 @@ tilePlayer2:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; padding
 
 tileFixer2:
-    StringHi    "   ==-- "
+    StringHi    " --==   "
     StringHi    "  (..)  "
     StringHi    "  (__)  "
     StringHi    "  /{}\  "
     StringHi    " / {} \ "
     StringHi    "   /\   "
-    .byte   $85,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Blocking, Special (1), animated
+    .byte   $a1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Blocking, Special (1), animated
 
 tileMrFancy2:
     StringHi    "   ..   "
@@ -448,7 +455,7 @@ tileJR:
     StringHi    "  (==)  "
     StringHi    " _{__}_ "
     StringHi    "   II   "
-    .byte   $85,$41,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $9d,$41,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileSis:
     StringHi    "        "
@@ -484,7 +491,7 @@ tileJR2:
     StringHi    "  (==)  "
     StringHi    " -{__}- "
     StringHi    "   II   "
-    .byte   $85,$41,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $9d,$41,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileSis2:
     StringHi    "        "
@@ -647,7 +654,7 @@ tileHammer:
     StringHi    "    I   "
     StringHi    "    I   "
     StringHi    "        "
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $80+6*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 
 tileBrokenBridge:
