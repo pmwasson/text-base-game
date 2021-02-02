@@ -16,6 +16,8 @@
 ;-----------------------------------------------------------------------------
 .align  256
 
+; increment by 4
+
 tile_jump_table:
 
     jmp     tile_handler_sign               ; $80
@@ -35,6 +37,8 @@ tile_jump_table:
     jmp     tile_handler_jr                 ; $9c
     nop
     jmp     tile_handler_fixer              ; $a0
+    nop
+    jmp     tile_handler_bridge             ; $a4
     nop
 
 ;-----------------------------------------------------------------------------
@@ -664,6 +668,6 @@ tileBrokenBridge:
     StringHi    "_>    >_"
     StringHi    "<    <__"
     StringHi    "_>    >_"
-    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $a5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 

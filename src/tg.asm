@@ -50,9 +50,9 @@ KEY_WAIT        = ' '
 KEY_QUIT        = $1b
 
 ; tiles
-tilePlayerId =          (tilePlayer1            - tileSheet) / TILE_SIZE
+tilePlayerId        =   (tilePlayer1            - tileSheet) / TILE_SIZE
 
-tileGrassId =           (tileGrass              - tileSheet) / TILE_SIZE
+tileGrassId         =   (tileGrass              - tileSheet) / TILE_SIZE
 
 tileDialogRightSMId =   (tileDialogRightSM      - tileSheet) / TILE_SIZE
 tileDialogRightMDId =   (tileDialogRightMD      - tileSheet) / TILE_SIZE
@@ -64,7 +64,10 @@ tileThoughtLId      =   (tileThoughtL           - tileSheet) / TILE_SIZE
 tileThoughtMId      =   (tileThoughtM           - tileSheet) / TILE_SIZE
 tileThoughtRId      =   (tileThoughtR           - tileSheet) / TILE_SIZE
 
-tileDog2Id =            (tileDog2               - tileSheet) / TILE_SIZE
+tileDog2Id          =   (tileDog2               - tileSheet) / TILE_SIZE
+
+tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
+
 
 ; Player starting location
 START_X         = 2   
@@ -1440,6 +1443,29 @@ on_hammer:
   
 .endproc
 
+;-----------------------------------------------------------------------------
+; tile_handler_bridge
+;-----------------------------------------------------------------------------
+; stateBridge: 0 = broken, 1 = fixed
+
+.proc tile_handler_bridge
+    jsr     tile_handler_coord
+
+    ; if bridge is not fixed, all done
+    lda     stateBridge
+    bne     :+
+    rts
+:
+    lda     #tileBoardwalkHId
+    jsr     draw_tile
+
+    ; clear cache so can walk over
+    lda     #0
+    ldy     mapCacheIndex
+    sta     mapCache,y
+    rts
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; Ending Screen
@@ -1700,7 +1726,7 @@ textJr3:
     .byte   $8d
     StringHi    " took out the"
     .byte   $8d
-    StringHi    " bridge"
+    StringHi    " bridge."
     .byte   0
 
 ; Fixer
