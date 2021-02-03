@@ -43,3 +43,16 @@
         StringQuote s
         .byte   13
 .endmacro
+
+; Converts @ to inverse-space and % to inverse _
+.macro  StringBlock s
+        .repeat .strlen(s), I
+        .if(.strat(s,I) = '@')
+        .byte ' '
+        .elseif(.strat(s,I) = '%')
+        .byte '_' & $1f
+        .else
+        .byte   .strat(s, I) | $80
+        .endif
+        .endrep
+.endmacro

@@ -71,8 +71,8 @@ tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
 tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
 ; Player starting location
-START_X         = 2   
-START_Y         = 3
+START_X         = 32  ;2  
+START_Y         = 10  ;3
 
 ; Misc
 VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
@@ -114,7 +114,9 @@ movement:
 gameLoop:
     inc     gameTime
     bne     :+
-    inc     gameTimeHi
+    lda     timerExpired
+    ora     #1
+    sta     timerExpired
 :   
     jsr     draw_screen
 
@@ -236,6 +238,11 @@ bump:
     dey
     bpl     :-
     sta     stateAnyVase
+
+    lda     #0
+    sta     stateTimer
+    lda     #0
+    sta     stateMarker
 
     rts
 
@@ -364,6 +371,16 @@ loop2:
     ldx     #25         ; duration
     jmp     sound_tone  ; link return
 .endproc
+
+;-----------------------------------------------------------------------------
+; sound_timer
+;-----------------------------------------------------------------------------
+.proc sound_timer
+    lda     #150        ; tone
+    ldx     #200        ; duration
+    jmp     sound_tone  ; link return
+.endproc
+
 
 ;-----------------------------------------------------------------------------
 ; get_key
@@ -706,6 +723,28 @@ temp:       .byte   0
     rts
 :
     sec
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_not_right_edge
+;-----------------------------------------------------------------------------
+; Set carry bit if mapCacheIndex is not on the right edge (4,9,14,19)
+.proc tile_not_right_edge
+    lda     mapCacheIndex
+    cmp     #4
+    beq     :+
+    cmp     #9
+    beq     :+
+    cmp     #14
+    beq     :+
+    cmp     #19
+    beq     :+
+    sec
+    rts
+:
+    clc
     rts
 
 .endproc
@@ -1211,6 +1250,245 @@ state:  .byte 0
 
 .endproc
 
+
+;-----------------------------------------------------------------------------
+; tile_handler_marker
+;-----------------------------------------------------------------------------
+.proc tile_handler_marker
+    lda     mapCacheIndex
+    cmp     #CACHE_CENTER
+    bne     :+
+    lda     #1
+    sta     stateMarker
+:
+    rts
+.endproc
+
+;-----------------------------------------------------------------------------
+; start_timer
+;-----------------------------------------------------------------------------
+
+.proc start_timer
+
+    ; only start timer if stateTimer is 0 or -1
+    lda     stateTimer
+    bmi     :+
+    beq     :+
+    rts
+:
+    ; cheat by clearing gameTime!
+    lda     #0
+    sta     gameTime
+    sta     timerExpired
+    sta     stateMarker
+    lda     #1
+    sta     stateTimer
+    jsr     sound_timer
+    rts
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_forest
+;-----------------------------------------------------------------------------
+; stateTimer:
+;       0 = idle
+;       1 = in-progress
+;      -1 = failed
+;       2 = sucess
+
+.proc tile_handler_forest
+    jsr     tile_handler_coord
+
+    ; If timer is active, display it (if possible)
+    lda     stateTimer
+    cmp     #1
+    bne     done_timer
+
+    ; check if timer expired
+    lda     timerExpired
+    bne     done_timer
+
+    ; check if room to display timer
+    jsr     tile_not_right_edge
+    bcc     done_timer
+
+    ; Dialog one space to the right
+    clc
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    sta     textX
+    inc     textX
+    inc     textY
+
+    lda     #tileDialogRightSMId
+    jsr     draw_tile
+
+    lda     gameTime
+    and     #$f0        ; 16 choice (up to 16 characters each)
+    sta     textPtr0
+    lda     #>timerText
+    sta     textPtr1
+    jsr     tile_print
+
+done_timer:
+    jsr     tile_adjacent
+    bcs     :+
+    jmp     done
+:
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     display
+
+    ; check race status
+    lda     stateTimer
+    cmp     #1
+    bne     not_in_race
+
+    ; expired, failed
+    lda     timerExpired
+    beq     :+
+
+    ; failed
+    lda     #$ff
+    sta     stateTimer
+    jmp     not_in_race
+
+:
+ 
+    ; if timer > d0 ("zero"), also fail
+    lda     gameTime
+    bpl     :+ 
+    cmp     #$d0
+    bmi     :+
+
+    ; failed
+    lda     #$ff
+    sta     stateTimer
+    jmp     not_in_race
+:
+
+    ; win if marker set and timer less than $e0
+    lda     stateMarker
+    beq     :+          ; marker not set
+
+    ; won!
+    lda     #2
+    sta     stateTimer
+    jmp     not_in_race
+
+:
+    ; race still going on, ignore the key-press
+    rts
+
+not_in_race:
+
+    ; increment dialog state
+    inc     state
+    lda     state
+    cmp     #4          ; 4 state: none + 3 dialog
+    bmi     :+
+
+    ; start timer if stateTimer is 0 or -1 (checked in subroutine)
+    jsr     start_timer
+
+    lda     #0
+    sta     state
+    jmp     display
+:   
+    jsr     sound_talk
+
+display:    
+    ; display a message based on state
+    lda     state
+    bne     :+
+    rts     ; zero = no display 
+:
+
+    lda     stateTimer
+    beq     display0
+    bmi     displayM1
+
+    ; display message (stateTimer = 2)
+
+    cmp     #1
+    bne     :+
+    brk         ; assertion stateTimer cannot be 1
+:
+
+display2:
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogForest6
+    jmp     draw_dialog     ; link return
+:
+
+    cmp     #2
+    bne     :+
+    lda     #dialogForest7
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogForest8
+    jmp     draw_dialog     ; link return
+
+displayM1:
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogForest4
+    jmp     draw_dialog     ; link return
+:
+
+    cmp     #2
+    bne     :+
+    lda     #dialogForest5
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogForest3
+    jmp     draw_dialog     ; link return
+
+
+display0:
+    ; Display message (stateTimer = 0)
+
+    ; 1
+    lda     state
+    cmp     #1
+    bne     :+
+    lda     #dialogForest1
+    jmp     draw_dialog     ; link return
+:
+
+    cmp     #2
+    bne     :+
+    lda     #dialogForest2
+    jmp     draw_dialog     ; link return
+:
+
+    lda     #dialogForest3
+    jmp     draw_dialog     ; link return
+
+done:
+    ; if state is 2, start timer
+    lda     state
+    cmp     #3
+    bne     :+
+    jsr     start_timer
+:
+    ; reset state if player moves
+    lda     #0
+    sta     state
+    rts
+
+state:  .byte 0
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_fixer
@@ -1810,23 +2088,20 @@ state:      .byte   0   ; only use for dialog
 ; Globals
 ;-----------------------------------------------------------------------------
 
-drawPage:   .byte   0   ; should be either 0 or 4
-gameTime:   .byte   0   ; +1 every turn
-gameTimeHi: .byte   0   ; upper byte
-tileX:      .byte   0
-tileY:      .byte   0
-mapX:       .byte   START_X
-mapY:       .byte   START_Y
-specialX:   .byte   0
-specialY:   .byte   0
-textX:      .byte   0
-textY:      .byte   0
-lastKey:    .byte   0
-
-mapCacheIndex:
-            .byte   0
-
-mapCache:   .res    SCREEN_WIDTH*SCREEN_HEIGHT
+drawPage:       .byte   0   ; should be either 0 or 4
+gameTime:       .byte   0   ; +1 every turn
+tileX:          .byte   0
+tileY:          .byte   0
+mapX:           .byte   START_X
+mapY:           .byte   START_Y
+specialX:       .byte   0
+specialY:       .byte   0
+textX:          .byte   0
+textY:          .byte   0
+lastKey:        .byte   0
+timerExpired:   .byte   0
+mapCacheIndex:  .byte   0
+mapCache:       .res    SCREEN_WIDTH*SCREEN_HEIGHT
 
 ; game state
 
@@ -1834,7 +2109,8 @@ stateHammer:    .byte  0
 stateBridge:    .byte  0
 stateAnyVase:   .byte  0
 stateVase:      .res   VASE_COUNT
-
+stateTimer:     .byte  0
+stateMarker:    .byte  0
 
 ; Lookup tables
 ;-----------------------------------------------------------------------------
@@ -1916,20 +2192,8 @@ linePage:
 ; Dialog
 ;-----------------------------------------------------------------------------
 
-; Standard dialog boxes are 14 wide and 4 high
-;   ..............
-;   ..............
-;   ..............
-;   ..............
-;
-; Thought bubbles are 20 wide and 4 high. (Can go 21 wide after first row)
-;   .................... 
-;   .................... 
-;   .................... 
-;   .................... 
-;
-; Could get 1 more row if use overwrite bottom of the box.  Use _ for spaces.
-; Use CR with upper bit set ($8D) to go to the next line.
+
+; Defines
 
 dialogGuard1 =      0*2
 dialogGuard2 =      1*2
@@ -1951,6 +2215,16 @@ dialogVase3 =       16*2
 dialogDoor =        17*2
 dialogBed1 =        18*2
 dialogBed2 =        19*2
+dialogForest1 =     20*2
+dialogForest2 =     21*2
+dialogForest3 =     22*2
+dialogForest4 =     23*2
+dialogForest5 =     24*2
+dialogForest6 =     25*2
+dialogForest7 =     26*2
+dialogForest8 =     27*2
+
+; Lookup table
 
 dialogTable:
     .word   textGuard1
@@ -1973,6 +2247,32 @@ dialogTable:
     .word   textDoor
     .word   textBed1
     .word   textBed2
+    .word   textForest1
+    .word   textForest2
+    .word   textForest3
+    .word   textForest4
+    .word   textForest5
+    .word   textForest6
+    .word   textForest7
+    .word   textForest8
+
+; Standard dialog boxes are 14 wide and 4 high
+;   --------------
+;   --------------
+;   --------------
+;   --------------
+;
+; Thought bubbles are 20 wide and 4 high. (Can go 21 wide after first row)
+;   --------------------
+;   --------------------
+;   --------------------
+;   --------------------
+;
+; Could get 1 more row if use overwrite bottom of the box.  Use _ for spaces.
+; Use CR with upper bit set ($8D) to go to the next line.
+
+
+; Guard
 
 textGuard1:
     .byte   $8d
@@ -1987,11 +2287,15 @@ textGuard2:
     StringHi    "  it going?"
     .byte   0
 
+; Dog House
+
 textDogHouse:
     .byte   $8d
     .byte   $8d
     StringHi    "  Where is Askey?"
     .byte   0
+
+; Fence
 
 textFence:
     .byte   $8d
@@ -1999,6 +2303,8 @@ textFence:
     .byte   $8d
     StringHi    " hole in the fence."
     .byte   0
+
+; Hammer
 
 textHammer:
     .byte   $8d
@@ -2082,11 +2388,15 @@ textFixer5:
     StringHi    "find your dog."
     .byte   0
 
+; Mailbox
+
 textMailbox1:
     .byte   $8d
     .byte   $8d
     StringHi    "The mailbox is empty."
     .byte   0
+
+; Vase
 
 textVase1:
     .byte   $8d
@@ -2108,11 +2418,15 @@ textVase3:
     StringHi    "Oh man, its busted."
     .byte   0
 
+; Door
+
 textDoor:
     .byte   $8d
     .byte   $8d
     StringHi    "The door is unlocked."
     .byte   0
+
+; Bed x2
 
 textBed1:
     .byte   $8d
@@ -2125,6 +2439,165 @@ textBed2:
     .byte   $8d
     StringHi    "   Not sleepy."
     .byte   0
+
+; Forest
+
+textForest1:
+    StringHi    "If you can run"
+    .byte   $8d
+    StringHi    "the forest"
+    .byte   $8d
+    StringHi    "loop before I"
+    .byte   $8d
+    StringHi    "count down to"
+    .byte   0
+
+textForest2:
+    StringHi    "zero, I'll"
+    .byte   $8d
+    StringHi    "give you a"
+    .byte   $8d
+    StringHi    "prize. Start"
+    .byte   $8d
+    StringHi    "when I say go."
+    .byte   0
+
+textForest3:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "    GO!!!"
+    .byte   0
+
+textForest4:
+    .byte   $8d
+    StringHi    "Better luck"
+    .byte   $8d
+    StringHi    "next time."
+    .byte   0
+
+textForest5:
+    .byte   $8d
+    StringHi    " Want to"
+    .byte   $8d
+    StringHi    "try again?"
+    .byte   0
+
+textForest6:
+    .byte   $8d
+    StringHi    "    Wow!"
+    .byte   $8d
+    StringHi    " You did it!"
+    .byte   0
+
+textForest7:
+    .byte   $8d
+    StringHi    " You win a"
+    .byte   $8d
+    StringHi    "commemorative"
+    .byte   $8d
+    StringHi    "   pen!"
+    .byte   0
+
+textForest8:
+    .byte   $8d
+    StringHi    " Your faster"
+    .byte   $8d
+    StringHi    "than Mr. Zip!"
+    .byte   0
+
+;-----------------------------------------------------------------------------
+; Count down
+;-----------------------------------------------------------------------------
+
+.align 256
+
+; padded to 16 bytes each
+timerText:
+
+.align 16
+    .byte       $8d
+    StringHi   " Ten!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   "Nine!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   "Eight!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   "Seven!"
+    .byte       0
+
+.align 16
+    StringHi   "Six &"
+    .byte       $8d
+    StringHi   "a half"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   " Six!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   " Five!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   " Four!"
+    .byte       0
+
+.align 16
+    StringHi   "Four"
+    .byte       $8d
+    StringHi   "again!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   "Three!"
+    .byte       0
+
+.align 16
+    StringHi   "Two &"
+    .byte       $8d
+    StringHi   "a half"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   " Two!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   " One!"
+    .byte       0
+
+.align 16
+    .byte       $8d
+    StringHi   "Zero!!"
+    .byte       0
+
+.align 16
+    StringHi   "Times"
+    .byte       $8d
+    StringHi   " up!"
+    .byte       0
+
+.align 16
+    StringHi   " Too"
+    .byte       $8d
+    StringHi   " bad."
+    .byte       0
 
 ;-----------------------------------------------------------------------------
 ; Game Map
