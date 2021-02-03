@@ -52,6 +52,8 @@ tile_jump_table:
     nop
     jmp     tile_handler_marker             ; $bc
     nop
+    jmp     tile_handler_easel              ; $c0
+    nop
 
 ;-----------------------------------------------------------------------------
 ; Tile data
@@ -620,7 +622,7 @@ tileDog1:
     StringHi    "\__()'`;"
     StringHi    "/    /` "
     StringHi    "\\--\\  "
-    .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
+    .byte   $89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
 
 ; filler
     StringHi    "        "
@@ -656,7 +658,7 @@ tileDog2:
     StringHi    "___()'`;"
     StringHi    "/    /` "
     StringHi    "\\--\\  "
-    .byte   $80+2*4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
+    .byte   $89,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0   ; Special (2)
 
 ; filler
     StringHi    "        "
@@ -789,7 +791,7 @@ tileEasel:
     StringBlock " %%%%%  "
     StringBlock " | | |  "
     StringBlock " |   |  "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $c1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
 tilePen:
     StringHi    "        "

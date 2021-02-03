@@ -71,8 +71,8 @@ tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
 tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
 ; Player starting location
-START_X         = 32  ;2  
-START_Y         = 10  ;3
+START_X         = 2  
+START_Y         = 3
 
 ; Misc
 VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
@@ -1411,12 +1411,6 @@ display:
     bmi     displayM1
 
     ; display message (stateTimer = 2)
-
-    cmp     #1
-    bne     :+
-    brk         ; assertion stateTimer cannot be 1
-:
-
 display2:
     ; 1
     lda     state
@@ -1786,24 +1780,32 @@ state:  .byte 0
 .endproc
 
 ;-----------------------------------------------------------------------------
+; tile_handler_easel
+;-----------------------------------------------------------------------------
+.proc tile_handler_easel
+
+    jsr     tile_adjacent
+    bcc     :+
+
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     :+
+
+    jsr     askey_portrait
+:
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
 ; tile_handler_dog
 ;-----------------------------------------------------------------------------
 .proc tile_handler_dog
 
     jsr     tile_handler_coord
 
-    ; check if player is near dog
-    lda     mapCacheIndex
-    cmp     #CACHE_UP
-    beq     :+
-    cmp     #CACHE_RIGHT
-    beq     :+
-    cmp     #CACHE_DOWN
-    beq     :+
-    cmp     #CACHE_LEFT
-    beq     :+
-    cmp     #CACHE_CENTER
-    beq     winning
+    jsr     tile_adjacent
+    bcs     :+
 
     ; not near, reset state and exit
     lda     #0
@@ -1842,9 +1844,6 @@ state:  .byte 0
 :
 
     rts
-
-winning:
-    jmp     end_screen_80
 
 state:  .byte   0
 dogText1:
@@ -2037,12 +2036,12 @@ state:      .byte   0   ; only use for dialog
 .endproc
 
 ;-----------------------------------------------------------------------------
-; Ending Screen
+; Askey portrait
 ;-----------------------------------------------------------------------------
 
 ; Ending requires an 80-column card
 
-.proc end_screen_80
+.proc askey_portrait
     ; 80 columns
     jsr     $c300
     jsr     HOME
@@ -2069,12 +2068,13 @@ state:      .byte   0   ; only use for dialog
     StringQuoteReturn   "                 ]*-   /  |   C                            *^^^*"
     StringQuoteReturn   "                  @@@@-  r    |"
     StringQuoteReturn   "                         '*==*                     by Paul Wasson, 2021"
-    .byte               "-->",0
+    .byte               0
     jsr     RDKEY
-    jsr     inline_print
-    .byte               " Goodbye <--",0
 
-    jmp     MONZ
+    lda     #$15
+    jsr     COUT
+
+    rts
 .endproc
 
 
