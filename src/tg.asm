@@ -48,6 +48,7 @@ KEY_RIGHT       = 'D'
 KEY_LEFT        = 'A'
 KEY_WAIT        = ' '
 KEY_QUIT        = $1b
+KEY_IDLE        = $ff
 
 ; tiles
 tilePlayerId        =   (tilePlayer1            - tileSheet) / TILE_SIZE
@@ -89,6 +90,8 @@ mapPtr0     :=  $54     ; Map pointer
 mapPtr1     :=  $55
 textPtr0    :=  $56     ; Text pointer
 textPtr1    :=  $57
+dialogPtr0  :=  $58     ; Dialog chain pointer
+dialogPtr1  :=  $59
 
 .segment "CODE"
 .org    $C00
@@ -123,7 +126,26 @@ gameLoop:
 commandLoop:    
     jsr     get_key
     sta     lastKey     ; record last key press
+    sta     dialogKey
 
+    ;------------------------------------------
+    ; If in dialog, ignore key presses
+    ;------------------------------------------
+    ldy     #0
+    lda     (dialogPtr0),y
+    beq     movement_mode
+
+    ; let dialog handle key presses
+    lda     #KEY_IDLE
+    sta     lastKey 
+    jmp     gameLoop
+
+    ;------------------------------------------
+    ; Movement mode
+    ;------------------------------------------
+movement_mode:
+
+    lda     lastKey
     ;------------------
     ; Up
     ;------------------
@@ -191,15 +213,11 @@ commandLoop:
     jmp     MONZ
 :
 
-    ;------------------
-    ; Time-out
-    ;------------------
-    cmp     #$ff
-    bne     :+
-    jmp     gameLoop
-:
+    ;--------------------------
+    ; Time-out or unmapped key
+    ;--------------------------
 
-    jmp     commandLoop
+    jmp     gameLoop
 
 bump:
     jsr     sound_bump
@@ -243,6 +261,11 @@ bump:
     sta     stateTimer
     lda     #0
     sta     stateMarker
+
+    ; Initial dialog
+    ldx     #<dialogInit
+    ldy     #>dialogInit
+    jsr     set_dialog
 
     rts
 
@@ -404,7 +427,7 @@ waitForKey:
     bne     waitForKey
 
     ; exit with no key after timeout
-    lda     #$ff
+    lda     #KEY_IDLE
     rts
 
 gotKey: 
@@ -462,6 +485,45 @@ specialLoop:
 
     lda     #tilePlayerId
     jsr     draw_tile
+
+
+    ; Draw Dialog
+    ;-------------------------------------------------------------------------
+    ldy     #0
+    lda     (dialogPtr0),y
+    beq     flipPage
+
+    ; set text
+    ldy     #1
+    lda     (dialogPtr0),y
+    sta     textPtr0
+    ldy     #2
+    lda     (dialogPtr0),y
+    sta     textPtr1
+
+    ; pick correct window
+    ldy     #0
+    lda     (dialogPtr0),y
+    cmp     #DIALOG_TALK
+    bne     :+
+    jsr     draw_dialog
+    jmp     next_dialog
+:
+    jsr     draw_thought
+
+next_dialog:
+    lda     dialogKey
+    cmp     #KEY_WAIT
+    bne     flipPage
+
+    ; go to next dialog
+    clc
+    lda     dialogPtr0
+    adc     #3
+    sta     dialogPtr0
+    lda     dialogPtr1
+    adc     #0
+    sta     dialogPtr1
 
     ; Set display page
     ;-------------------------------------------------------------------------
@@ -832,10 +894,8 @@ nextX:      .byte   0
 ;-----------------------------------------------------------------------------
 .proc draw_dialog
 
-    sta     dialogIndex
-
     ; Position the dialog box based on position
-    lda     mapCacheIndex
+    lda     dialogCacheIndex
 
     ; if above, use tile 1,0
     cmp     #CACHE_UP
@@ -928,14 +988,6 @@ dialog:
     inc     textX
     inc     textY
 
-    ; look up string
-    ldy     dialogIndex
-    lda     dialogTable,y
-    sta     textPtr0
-    iny
-    lda     dialogTable,y
-    sta     textPtr1
-
     ; draw text
     jmp     tile_print      ; link return
 
@@ -947,8 +999,6 @@ dialogIndex:    .byte   0
 ; draw_thought
 ;-----------------------------------------------------------------------------
 .proc draw_thought
-
-    sta     dialogIndex
 
     ; use tile 1,1
     lda     #TILE_HEIGHT*1  ; row
@@ -987,18 +1037,8 @@ dialog:
     inc     textX
     inc     textY
 
-    ; look up string
-    ldy     dialogIndex
-    lda     dialogTable,y
-    sta     textPtr0
-    iny
-    lda     dialogTable,y
-    sta     textPtr1
-
     ; draw text
     jmp     tile_print      ; link return
-
-dialogIndex:    .byte   0
 
 .endproc
 
@@ -1191,63 +1231,44 @@ state:  .byte 0
 
 
 ;-----------------------------------------------------------------------------
+; set_dialog
+;-----------------------------------------------------------------------------
+.proc set_dialog
+    ; set pointer
+    stx     dialogPtr0
+    sty     dialogPtr1
+
+    ; save position
+    lda     mapCacheIndex
+    sta     dialogCacheIndex
+
+    ; keypress has already been handled
+    lda     #KEY_IDLE
+    sta     dialogKey
+
+    rts
+.endproc
+
+;-----------------------------------------------------------------------------
 ; tile_handler_jr
 ;-----------------------------------------------------------------------------
 .proc tile_handler_jr
     jsr     tile_handler_coord
 
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    inc     state
-    lda     state
-    cmp     #4          ; 3 state: none + 2 dialog
-    bmi     :+
-    lda     #0
-    sta     state
-    jmp     display
-:   
-    jsr     sound_talk
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogJr
+    ldy     #>dialogJr
+    jsr     set_dialog
 :
-
-    ; Display message
-
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogJr1
-    jmp     draw_dialog     ; link return
-:
-
-    cmp     #2
-    bne     :+
-    lda     #dialogJr2
-    jmp     draw_dialog     ; link return
-:
-
-    lda     #dialogJr3
-    jmp     draw_dialog     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
-
 .endproc
 
 
@@ -2099,10 +2120,12 @@ specialY:       .byte   0
 textX:          .byte   0
 textY:          .byte   0
 lastKey:        .byte   0
+dialogKey:      .byte   0
 timerExpired:   .byte   0
 mapCacheIndex:  .byte   0
 mapCache:       .res    SCREEN_WIDTH*SCREEN_HEIGHT
-
+dialogCacheIndex:
+                .byte   0
 ; game state
 
 stateHammer:    .byte  0
@@ -2192,6 +2215,21 @@ linePage:
 ; Dialog
 ;-----------------------------------------------------------------------------
 
+DIALOG_END =        0
+DIALOG_TALK =       1
+DIALOG_THOUGHT =    2
+
+dialogInit: .byte   DIALOG_THOUGHT
+            .word   textDogHouse
+            .byte   DIALOG_END
+
+dialogJr:   .byte   DIALOG_TALK
+            .word   textJr1
+            .byte   DIALOG_TALK
+            .word   textJr2
+            .byte   DIALOG_TALK
+            .word   textJr3
+            .byte   DIALOG_END
 
 ; Defines
 
