@@ -78,8 +78,9 @@ START_X         = 2
 START_Y         = 3
 
 ; Misc
-VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
-PAINTING_COUNT  = 8     ; Max number of painting in the fame (must be power of 2)
+VASE_COUNT      = 16    ; Max number of vases (must be power of 2)
+PAINTING_COUNT  = 8     ; Max number of painting (must be power of 2)
+SIGN_COUNT      = 8     ; Max number of signs (must be power of 2)
 
 ;------------------------------------------------
 ; Zero page usage
@@ -208,6 +209,10 @@ movement_mode:
     ;------------------
     ; Quit
     ;------------------
+
+    ; TODO - add a dialog so don't quit by accident
+    ; TODO - make this exit cleanly for DOS 3.3
+
     cmp     #KEY_QUIT
     bne     :+
     lda     #23
@@ -1274,50 +1279,37 @@ nextX:      .byte   0
 .proc tile_handler_sign
     jsr     tile_handler_coord
 
-    ; choose message
-    lda     specialX
+    ; sign based on Y cord
+    lda     specialY
+    and     #SIGN_COUNT-1
+    asl     ; multiply by 2
+    tay
 
-    ; Mr Fancy
-    cmp     #22
-    bne     :+  
-    lda     #<signTextFancy
+    ; set text pointer
+    lda     signTable,y
     sta     textPtr0
-    lda     #>signTextFancy
-    sta     textPtr1
-    jmp     tile_print
-:
-    ; Duck Pond
-    cmp     #35
-    bne     :+  
-    lda     #<signDuck
-    sta     textPtr0
-    lda     #>signDuck
-    sta     textPtr1
-    jmp     tile_print
-:
-    ; Forest Trail
-    cmp     #51
-    bne     :+  
-    lda     #<signTrail
-    sta     textPtr0
-    lda     #>signTrail
-    sta     textPtr1
-    jmp     tile_print
-:
-    ; default
-    lda     #<signTextDefault
-    sta     textPtr0
-    lda     #>signTextDefault
+    lda     signTable+1,y
     sta     textPtr1
     jmp     tile_print
 
 
-signTextDefault:
+signTable:
+    .word   signFancy
+    .word   signDefault
+    .word   signTrail
+    .word   signDefault
+    .word   signDefault
+    .word   signDefault
+    .word   signDefault
+    .word   signDuck
+
+
+signDefault:
     .byte   $8d
     StringInv   "  ????"
     .byte   0
 
-signTextFancy:
+signFancy:
     .byte   $8d
     StringInv   "MR FANCY"
     .byte   0
