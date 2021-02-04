@@ -74,11 +74,12 @@ tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 tileMailBox2Id      =   (tileMailBox2           - tileSheet) / TILE_SIZE
 
 ; Player starting location
-START_X         = 42  ; 2  
-START_Y         = 8  ; 3
+START_X         = 2  
+START_Y         = 3
 
 ; Misc
 VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
+PAINTING_COUNT  = 8     ; Max number of painting in the fame (must be power of 2)
 
 ;------------------------------------------------
 ; Zero page usage
@@ -1002,7 +1003,6 @@ dialog:
 ;-----------------------------------------------------------------------------
 ; draw_letter
 ;-----------------------------------------------------------------------------
-
 LETTER_LEFT = 2
 LETTER_RIGHT = 38
 
@@ -1021,7 +1021,7 @@ LETTER_RIGHT = 38
 
     lda     #$20
 
-    ; page 400
+    ; 400: row 0
     ldy     #$00+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1029,6 +1029,7 @@ LETTER_RIGHT = 38
     cpy     #$00+LETTER_RIGHT
     bne     :-
 
+    ; 428: row 8
     ldy     #$28+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1036,6 +1037,7 @@ LETTER_RIGHT = 38
     cpy     #$28+LETTER_RIGHT
     bne     :-
 
+    ; 480: row 1
     ldy     #$80+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1043,6 +1045,7 @@ LETTER_RIGHT = 38
     cpy     #$80+LETTER_RIGHT
     bne     :-
 
+    ; 428: row 9
     ldy     #$A8+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1050,10 +1053,9 @@ LETTER_RIGHT = 38
     cpy     #$A8+LETTER_RIGHT
     bne     :-
 
-    ; page 500
     inc     screenPtr1
 
-
+    ; 500: row 2
     ldy     #$00+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1061,6 +1063,9 @@ LETTER_RIGHT = 38
     cpy     #$00+LETTER_RIGHT
     bne     :-
 
+    ; 528: row 10
+    ; Use underline
+    lda     #$1f
     ldy     #$28+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1068,6 +1073,10 @@ LETTER_RIGHT = 38
     cpy     #$28+LETTER_RIGHT
     bne     :-
 
+    ; go back to spaces
+    lda     #$20
+
+    ; 580: row 3
     ldy     #$80+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1075,9 +1084,9 @@ LETTER_RIGHT = 38
     cpy     #$80+LETTER_RIGHT
     bne     :-
 
-    ; page 600
     inc     screenPtr1
 
+    ; 600: row 4
     ldy     #$00+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1085,6 +1094,7 @@ LETTER_RIGHT = 38
     cpy     #$00+LETTER_RIGHT
     bne     :-
 
+    ; 680: row 5
     ldy     #$80+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1092,9 +1102,9 @@ LETTER_RIGHT = 38
     cpy     #$80+LETTER_RIGHT
     bne     :-
 
-    ; page 700
     inc     screenPtr1
 
+    ; 700: row 6
     ldy     #$00+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1102,6 +1112,7 @@ LETTER_RIGHT = 38
     cpy     #$00+LETTER_RIGHT
     bne     :-
 
+    ; 780: row 7
     ldy     #$80+LETTER_LEFT
 :
     sta     (screenPtr0),y
@@ -1888,6 +1899,36 @@ letter:     .byte   0
 .endproc
 
 ;-----------------------------------------------------------------------------
+; tile_handler_painting
+;-----------------------------------------------------------------------------
+.proc tile_handler_painting
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcc     :+
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     :+
+
+    ; painting based on Y cord
+    lda     specialY
+    and     #PAINTING_COUNT-1
+    asl     ; multiply by 2
+    tay
+
+    ; set up dialog
+    ldx     paintingTable,y
+    lda     paintingTable+1,y
+    tay
+    jsr     set_dialog
+:
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
 ; tile_handler_easel
 ;-----------------------------------------------------------------------------
 .proc tile_handler_easel
@@ -2304,7 +2345,6 @@ DIALOG_THOUGHT =    2
 DIALOG_LETTER =     3
 
 dialogInit: 
-            .byte   DIALOG_END          ; <<< REMOVE ME FOR FINAL GAME
             .byte   DIALOG_THOUGHT
             .word   textInit
             .byte   DIALOG_END
@@ -2356,8 +2396,10 @@ dialogMailboxFancy:
             .byte   DIALOG_END
 
 dialogMailboxPlayer: 
+            .byte   DIALOG_THOUGHT
+            .word   textMailboxPlayer1
             .byte   DIALOG_LETTER
-            .word   textMailboxPlayer
+            .word   textMailboxPlayer2
             .byte   DIALOG_END
 
 dialogHammer: 
@@ -2483,6 +2525,19 @@ dialogFancySentLetter:
             .word   textFancySentLetter2
             .byte   DIALOG_END
 
+dialogPaintingPlayer:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingPlayer1
+            .byte   DIALOG_LETTER
+            .word   textPaintingPlayer2
+            .byte   DIALOG_END
+
+dialogPaintingFancy:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingFancy1
+            .byte   DIALOG_LETTER
+            .word   textPaintingFancy2
+            .byte   DIALOG_END
 
 ; Standard dialog boxes are 14 wide and 4 high
 ;   --------------
@@ -2671,7 +2726,7 @@ textVaseBreak2:
 textVaseBad:
     .byte   $8d
     .byte   $8d
-    StringHi    "Oh man, its busted."
+    StringHi    "Oh man, it's busted."
     .byte   0
 
 ; Door
@@ -2820,7 +2875,7 @@ textFancyInit3:
 
 textFancyLetter1:
     .byte   $8d
-    StringHi    "Its a letter"
+    StringHi    "It's a letter"
     .byte   $8d
     StringHi    "from the"
     .byte   $8d
@@ -2912,7 +2967,16 @@ textFancySentLetter2:
     StringHi    " your dog."
     .byte   0
 
-textMailboxPlayer:
+textMailboxPlayer1:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "  It's a letter from"
+    .byte   $8d
+    StringHi    "    the Queen!"
+    .byte   0
+
+
+textMailboxPlayer2:
     StringInv   "THE QUEEN          FROM THE CASTLE"
     .byte   $8d
     .byte   $8d
@@ -2930,6 +2994,75 @@ textMailboxPlayer:
     .byte   $8d
     StringInv   "THE QUEEN"
     .byte   0
+
+
+textPaintingPlayer1:
+    .byte   $8d
+    StringHi    "  It's a picture of"
+    .byte   $8d
+    StringHi    "   me and Askey"
+    .byte   0
+
+textPaintingPlayer2:
+    .byte   $8d,$20,$20
+    StringHi    "  /\      ////\\\\            "
+    .byte   $8d,$20,$20
+    StringHi    " //\\    /////\\\\\       /\  "
+    .byte   $8d,$20,$20
+    StringHi    "///\\\       ||    --    //\\ "
+    .byte   $8d,$20,$20
+    StringHi    "///\\\\      ||   (oo)  ///\\\"
+    .byte   $8d,$20,$20
+    StringHi    "  ||        __    -\/-    ||  "
+    .byte   $8d,$20,$20
+    StringHi    "  ||   \__()'`;  / || \       "
+    .byte   $8d,$20,$20
+    StringHi    "       /    /`     /\         "
+    .byte   $8d,$20,$20
+    StringHi    "       \\--\\     |  |        "
+    .byte   0
+ 
+ textPaintingFancy1:
+    .byte   $8d
+    StringHi    "  Mr. Fancy sure"
+    .byte   $8d
+    StringHi    "   likes ducks."
+    .byte   0
+
+textPaintingFancy2:
+    .byte   $8d,$20,$20
+    StringHi    "      __(o)=                .."
+    .byte   $8d,$20,$20
+    StringHi    "      \___)    ..          ..."
+    .byte   $8d,$20,$20
+    StringHi    "        L     (oo)       ....."
+    .byte   $8d,$20,$20
+    StringHi    "      _      ( == )      _ ..."
+    .byte   $8d,$20,$20
+    StringHi    "   __(o)=    -/::\-    =(o)__ "
+    .byte   $8d,$20,$20
+    StringHi    "   \___)     {_--_}   . (___/ "
+    .byte   $8d,$20,$20
+    StringHi    "     L        I  I   ........."
+    .byte   $8d,$20,$20
+    StringHi    "                   ..........."    
+    .byte   0
+ 
+
+;-----------------------------------------------------------------------------
+; Painting lookup
+;-----------------------------------------------------------------------------
+
+paintingTable:
+    .word   dialogPaintingFancy
+    .word   dialogPaintingFancy
+    .word   dialogPaintingPlayer
+    .word   dialogPaintingFancy
+    .word   dialogPaintingFancy
+    .word   dialogPaintingFancy
+    .word   dialogPaintingFancy
+    .word   dialogPaintingFancy
+
 
 ;-----------------------------------------------------------------------------
 ; Count down

@@ -56,6 +56,9 @@ tile_jump_table:
     nop
     jmp     tile_handler_fancy              ; $c4
     nop
+    jmp     tile_handler_painting           ; $c8
+    nop
+
 ;-----------------------------------------------------------------------------
 ; Tile data
 ;-----------------------------------------------------------------------------
@@ -783,7 +786,7 @@ tileWallPainting:
     StringInv   " !    ! "
     StringInv   " +----+ "
     StringInv   "        "
-    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $c9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
 tileEasel:
     StringBlock " _____  "
