@@ -71,6 +71,8 @@ tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
 
 tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
+tileMailBox2Id      =   (tileMailBox2           - tileSheet) / TILE_SIZE
+
 ; Player starting location
 START_X         = 42  ; 2  
 START_Y         = 8  ; 3
@@ -248,6 +250,12 @@ bump:
     sta     stateHammer
     lda     #0
     sta     stateBridge
+    lda     #0
+    sta     stateLetter
+    lda     #0
+    sta     stateFancy
+    lda     #0
+    sta     stateCastle
 
     lda     #0
     ldy     #VASE_COUNT-1
@@ -519,11 +527,28 @@ specialLoop:
     ldy     #0
     lda     (dialogPtr0),y
     cmp     #DIALOG_TALK
-    bne     :+
+    bne     thought
     jsr     draw_dialog
+
+    ; play talking sound once per dialog
+    lda     dialogSound
+    bne     :+
+    jsr     sound_talk
+    lda     #1
+    sta     dialogSound     ; only once
+:
+    jmp     next_dialog
+
+thought:
+    cmp     #DIALOG_THOUGHT
+    bne     :+
+    ; no sound for thought
+    jsr     draw_thought
     jmp     next_dialog
 :
-    jsr     draw_thought
+    ; must be a letter
+    jsr     draw_letter
+    jmp     next_dialog
 
 next_dialog:
     lda     dialogKey
@@ -539,6 +564,10 @@ next_dialog:
     adc     #0
     sta     dialogPtr1
 
+    ; reset sound
+    lda     #0
+    sta     dialogSound
+
     ; Set display page
     ;-------------------------------------------------------------------------
 
@@ -552,6 +581,8 @@ flipPage:
 flipToPage1:
     sta     LOWSCR          ; diaplay page 1
     rts
+
+dialogSound:    .byte   0
 
 .endproc
 
@@ -968,6 +999,126 @@ dialog:
 
 .endproc
 
+;-----------------------------------------------------------------------------
+; draw_letter
+;-----------------------------------------------------------------------------
+
+LETTER_LEFT = 2
+LETTER_RIGHT = 38
+
+.proc draw_letter
+
+    ; quick fill rows 0-10 with inverse spaces
+    lda     #0
+    sta     screenPtr0
+    clc
+    lda     #4
+    adc     drawPage
+    sta     screenPtr1
+
+    ; columns 2-37
+
+
+    lda     #$20
+
+    ; page 400
+    ldy     #$00+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$00+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$28+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$28+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$80+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$80+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$A8+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$A8+LETTER_RIGHT
+    bne     :-
+
+    ; page 500
+    inc     screenPtr1
+
+
+    ldy     #$00+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$00+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$28+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$28+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$80+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$80+LETTER_RIGHT
+    bne     :-
+
+    ; page 600
+    inc     screenPtr1
+
+    ldy     #$00+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$00+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$80+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$80+LETTER_RIGHT
+    bne     :-
+
+    ; page 700
+    inc     screenPtr1
+
+    ldy     #$00+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$00+LETTER_RIGHT
+    bne     :-
+
+    ldy     #$80+LETTER_LEFT
+:
+    sta     (screenPtr0),y
+    iny
+    cpy     #$80+LETTER_RIGHT
+    bne     :-
+
+    ; set text pointer
+    lda     #LETTER_LEFT+1
+    sta     textX
+    lda     #0
+    sta     textY
+
+    ; draw text
+    jmp     tile_print      ; link return
+
+.endproc
 
 ; TODO - put tile code in new file
 ; May be possible to load different tiles and code for different levels
@@ -1239,6 +1390,96 @@ on_door:
 
 
 
+;-----------------------------------------------------------------------------
+; tile_handler_fancy
+;-----------------------------------------------------------------------------
+;  stateFancy: 0 = init, 1 = got letter, 2 = pen?, 3 = sent letter
+
+.proc tile_handler_fancy
+    jsr     tile_adjacent
+    bcs     :+
+    rts
+:
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    beq     :+
+    rts
+:
+
+    ; check for broken vases
+    lda     stateAnyVase
+    beq     :+
+    ldx     #<dialogFancyVase
+    ldy     #>dialogFancyVase
+    jsr     set_dialog
+    ; clear vase state
+    lda     #0
+    sta     stateAnyVase
+    rts
+:
+
+    lda     stateFancy
+    beq     init
+
+    cmp     #1
+    bne     :+
+    ; got letter
+
+    ldx     #<dialogFancyLetter
+    ldy     #>dialogFancyLetter
+    jsr     set_dialog
+    lda     #2
+    sta     stateFancy
+    rts
+:
+
+    cmp     #2
+    bne     sent_letter
+
+    ; seen letter
+    ; but do we have a pen?
+
+    lda     stateTimer
+    cmp     #2
+    bne     :+
+    ; yes!
+
+    ; pen
+    ldx     #<dialogFancyPen
+    ldy     #>dialogFancyPen
+    jsr     set_dialog
+
+    lda     #3
+    sta     stateFancy
+
+    lda     #2
+    sta     stateLetter
+    rts
+
+:
+    ; no pen
+    ldx     #<dialogFancyNoPen
+    ldy     #>dialogFancyNoPen
+    jsr     set_dialog
+    rts
+
+sent_letter:
+    ldx     #<dialogFancySentLetter
+    ldy     #>dialogFancySentLetter
+    jsr     set_dialog
+    rts
+
+
+init:
+    ldx     #<dialogFancyInit
+    ldy     #>dialogFancyInit
+    jsr     set_dialog
+    lda     #1
+    sta     stateLetter
+    rts
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_jr
@@ -1526,20 +1767,81 @@ state:  .byte 0
 ; tile_handler_mailbox
 ;-----------------------------------------------------------------------------
 .proc tile_handler_mailbox
-    jsr     tile_adjacent
-    bcc     :+
 
+    ; stateLetter: 0 = no mail, 1 = mr fancy, 2 = player
+
+    jsr     tile_handler_coord
+
+    lda     specialX
+    cmp     #16
+    bmi     player_mailbox
+
+    ; Mr fancy mailbox
+    lda     stateLetter
+    and     #1
+    jmp     :+
+
+player_mailbox:
+    lda     stateLetter
+    and     #2
+:
+    sta     letter      ; remember if this mailbox has a letter
+    beq     :+
+
+    lda     #tileMailBox2Id
+    jsr     draw_tile
+
+:
+
+
+    jsr     tile_adjacent
+    bcs     :+
+    rts
+:
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
+    beq     :+
+    rts
+:
+    lda     letter
+    cmp     #1
     bne     :+
 
-    ; set up dialog
+    ; Mr Fancy dialog
+    ldx     #<dialogMailboxFancy
+    ldy     #>dialogMailboxFancy
+    jsr     set_dialog
+
+    lda     #0
+    sta     stateLetter
+    lda     #1
+    sta     stateFancy
+    rts
+:
+    cmp     #2
+    bne     :+
+
+    ; Player dialog
+    ldx     #<dialogMailboxPlayer
+    ldy     #>dialogMailboxPlayer
+    jsr     set_dialog
+
+    lda     #0
+    sta     stateLetter
+    lda     #1
+    sta     stateCastle
+
+    rts
+:
+
+    ; empty mailbox
     ldx     #<dialogMailbox
     ldy     #>dialogMailbox
     jsr     set_dialog
-:
     rts
+
+letter:     .byte   0
 
 .endproc
 
@@ -1848,7 +2150,7 @@ broken_vase:
     StringQuoteReturn   "                >=~y,,                   Congratulations, you found Askey!"
     StringQuoteReturn   "             (;-=    C@/.                      Thanks for playing!"
     StringQuoteReturn   "           >^<-yrC-   \[ `-"
-    StringQuoteReturn   "     ;g@\`     ^^@    ]F   >,             Written, February 2021, for ASE"
+    StringQuoteReturn   "     ;g@\`     ^^@    ]F   >,"
     StringQuoteReturn   "     V~s             ^A     ]"
     StringQuoteReturn   "      'v    ,=,   . ,@       L"
     StringQuoteReturn   "         ,@--@*\>  [@       /@           _,>,ww~=~r-~+.c"
@@ -1864,9 +2166,9 @@ broken_vase:
     StringQuoteReturn   "                    \  ]`'[   [@@-         ^~=-'            ]  C"
     StringQuoteReturn   "                    /  |  }   L                            /\  ]"
     StringQuoteReturn   "                 ]*-   /  |   C                            *^^^*"
-    StringQuoteReturn   "                  @@@@-  r    |    Programming......................Paul Wasson"
-    StringQuoteReturn   "                         '*==*     Script and plot consultant.......Lisa Wasson"
-    StringQuoteReturn   "                                   Game tester....................Sophia Wasson"
+    StringQuoteReturn   "                  @@@@-  r    |"
+    StringQuoteReturn   "                         '*==*          Written by Paul Wasson, February 2021"
+    StringQuoteReturn   "                                           For the ASE text-only game contest"
     .byte               0
     jsr     RDKEY
 
@@ -1912,6 +2214,9 @@ stateAnyVase:   .byte  0
 stateVase:      .res   VASE_COUNT
 stateTimer:     .byte  0
 stateMarker:    .byte  0
+stateLetter:    .byte  0
+stateFancy:     .byte  0
+stateCastle:    .byte  0
 
 ; Lookup tables
 ;-----------------------------------------------------------------------------
@@ -1996,8 +2301,10 @@ linePage:
 DIALOG_END =        0
 DIALOG_TALK =       1
 DIALOG_THOUGHT =    2
+DIALOG_LETTER =     3
 
 dialogInit: 
+            .byte   DIALOG_END          ; <<< REMOVE ME FOR FINAL GAME
             .byte   DIALOG_THOUGHT
             .word   textInit
             .byte   DIALOG_END
@@ -2041,6 +2348,16 @@ dialogFence:
 dialogMailbox: 
             .byte   DIALOG_THOUGHT
             .word   textMailbox1
+            .byte   DIALOG_END
+
+dialogMailboxFancy: 
+            .byte   DIALOG_THOUGHT
+            .word   textMailboxFancy
+            .byte   DIALOG_END
+
+dialogMailboxPlayer: 
+            .byte   DIALOG_LETTER
+            .word   textMailboxPlayer
             .byte   DIALOG_END
 
 dialogHammer: 
@@ -2116,6 +2433,55 @@ dialogForestLost:
             .word   textForestGo
             .byte   DIALOG_END
 
+dialogFancyVase:
+            .byte   DIALOG_TALK
+            .word   textFancyVase1
+            .byte   DIALOG_TALK
+            .word   textFancyVase2
+            .byte   DIALOG_TALK
+            .word   textFancyVase3
+            .byte   DIALOG_END
+
+dialogFancyInit:
+            .byte   DIALOG_TALK
+            .word   textFancyInit1
+            .byte   DIALOG_TALK
+            .word   textFancyInit2
+            .byte   DIALOG_TALK
+            .word   textFancyInit3
+            .byte   DIALOG_END
+
+dialogFancyLetter:
+            .byte   DIALOG_TALK
+            .word   textFancyLetter1
+            .byte   DIALOG_TALK
+            .word   textFancyLetter2
+            .byte   DIALOG_LETTER
+            .word   textFancyLetter3
+            .byte   DIALOG_TALK
+            .word   textFancyLetter4
+            .byte   DIALOG_END
+
+dialogFancyNoPen:
+            .byte   DIALOG_TALK
+            .word   textFancyNoPen1
+            .byte   DIALOG_TALK
+            .word   textFancyNoPen2
+            .byte   DIALOG_END
+
+dialogFancyPen:
+            .byte   DIALOG_TALK
+            .word   textFancyPen1
+            .byte   DIALOG_TALK
+            .word   textFancyPen2
+            .byte   DIALOG_END
+
+dialogFancySentLetter:
+            .byte   DIALOG_TALK
+            .word   textFancySentLetter1
+            .byte   DIALOG_TALK
+            .word   textFancySentLetter2
+            .byte   DIALOG_END
 
 
 ; Standard dialog boxes are 14 wide and 4 high
@@ -2130,6 +2496,15 @@ dialogForestLost:
 ;   --------------------
 ;   --------------------
 ;
+; Letters are 34 wide and 10 high
+;
+;   ---------------------------------- 
+;   ---------------------------------- 
+; ...
+; ...
+;   ---------------------------------- 
+;   ---------------------------------- 
+
 ; Could get 1 more row if use overwrite bottom of the box.  Use _ for spaces.
 ; Use CR with upper bit set ($8D) to go to the next line.
 
@@ -2265,6 +2640,13 @@ textMailbox1:
     StringHi    "The mailbox is empty."
     .byte   0
 
+textMailboxFancy:
+    .byte   $8d
+    StringHi    "I got the letter for"
+    .byte   $8d
+    StringHi    "    Mr. Fancy."
+    .byte   0
+
 ; Vase
 
 textVaseGood:
@@ -2375,13 +2757,179 @@ textForestWon3:
 
 textPortrait:
     .byte   $8d
-    StringHi    "  What a good boy!"
+    StringHi    "What a hansome boy!"
     .byte   $8d
     StringHi    "  (Press ESC to"
     .byte   $8d
     StringHi    "   quit game)"
     .byte   0    
 
+
+textFancyVase1:
+    .byte   $8d
+    StringHi    "Oh dear, I"
+    .byte   $8d
+    StringHi    "heard a crash"
+    .byte   $8d
+    StringHi    "from my house."
+    .byte   0
+
+textFancyVase2:
+    .byte   $8d
+    StringHi    "I hope"
+    .byte   $8d
+    StringHi    "everything is"
+    .byte   $8d
+    StringHi    "okay."
+    .byte   0
+
+textFancyVase3:
+    StringHi    "Well, not to"
+    .byte   $8d
+    StringHi    "worry. Now"
+    .byte   $8d
+    StringHi    "how can I"
+    .byte   $8d
+    StringHi    "help you?"
+    .byte   0
+
+textFancyInit1:
+    .byte   $8d
+    StringHi    "Could you do"
+    .byte   $8d
+    StringHi    "me a favor?"
+    .byte   $8d
+    StringHi    "I think I saw"
+    .byte   0
+
+textFancyInit2:
+    .byte   $8d
+    StringHi    "Mr. Zip drop"
+    .byte   $8d
+    StringHi    "off my mail."
+    .byte   0
+
+textFancyInit3:
+    .byte   $8d
+    StringHi    "Could you"
+    .byte   $8d
+    StringHi    "bring it to"
+    .byte   $8d
+    StringHi    "me?"
+    .byte   0
+
+textFancyLetter1:
+    .byte   $8d
+    StringHi    "Its a letter"
+    .byte   $8d
+    StringHi    "from the"
+    .byte   $8d
+    StringHi    "Queen."
+    .byte   0
+
+textFancyLetter2:
+    .byte   $8d
+    StringHi    "Here, take"
+    .byte   $8d
+    StringHi    "a look."
+    .byte   0
+
+textFancyLetter3:
+    StringInv   "THE QUEEN          FROM THE CASTLE"
+    .byte   $8d
+    .byte   $8d
+    StringInv   "DEAR MR. FANCY,"
+    .byte   $8d
+    .byte   $8d
+    StringInv   "I HOPE YOU ARE DOING WELL. ON MY"
+    .byte   $8d
+    StringInv   "MORNING WALK, I FOUND A LOST DOG"
+    .byte   $8d
+    StringInv   "DO YOU KNOWN WHOS IT COULD BE?"
+    .byte   $8d
+    .byte   $8d
+    StringInv   "SINCERLY YOURS,"
+    .byte   $8d
+    StringInv   "THE QUEEN"
+    .byte   0
+
+textFancyLetter4:
+    .byte   $8d
+    StringHi    "We must write"
+    .byte   $8d
+    StringHi    "her back,"
+    .byte   $8d
+    StringHi    "but ..."
+    .byte   0
+
+textFancyNoPen1:
+    .byte   $8d
+    StringHi    " I seem to"
+    .byte   $8d
+    StringHi    " have lost"
+    .byte   $8d
+    StringHi    " my pen."
+    .byte   0
+
+textFancyNoPen2:
+    .byte   $8d
+    StringHi    "Can you bring"
+    .byte   $8d
+    StringHi    "  me a pen?"
+    .byte   0
+
+textFancyPen1:
+    .byte   $8d
+    StringHi    "Thank-you"
+    .byte   $8d
+    StringHi    "for the pen."
+    .byte   0
+
+textFancyPen2:
+    .byte   $8d
+    StringHi    "    I have"
+    .byte   $8d
+    StringHi    "  written to"
+    .byte   $8d
+    StringHi    "  the Queen!"
+    .byte   0
+
+textFancySentLetter1:
+    .byte   $8d
+    StringHi    " Did you hear"
+    .byte   $8d
+    StringHi    " back from"
+    .byte   $8d
+    StringHi    " the Queen?"
+    .byte   0
+
+textFancySentLetter2:
+    .byte   $8d
+    StringHi    " Good luck"
+    .byte   $8d
+    StringHi    " finding"
+    .byte   $8d
+    StringHi    " your dog."
+    .byte   0
+
+textMailboxPlayer:
+    StringInv   "THE QUEEN          FROM THE CASTLE"
+    .byte   $8d
+    .byte   $8d
+    StringInv   "DEAR LOYAL SUBJECT,"
+    .byte   $8d
+    .byte   $8d
+    StringInv   "I FOUND YOUR DOG.  PLEASE SHOW"
+    .byte   $8d
+    StringInv   "THIS LETTER TO THE GUARD TO"
+    .byte   $8d
+    StringInv   "LET YOU INTO THE CASTLE."
+    .byte   $8d
+    .byte   $8d
+    StringInv   "SINCERLY YOURS,"
+    .byte   $8d
+    StringInv   "THE QUEEN"
+    .byte   0
 
 ;-----------------------------------------------------------------------------
 ; Count down

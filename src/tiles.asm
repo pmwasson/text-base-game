@@ -54,7 +54,8 @@ tile_jump_table:
     nop
     jmp     tile_handler_duck               ; $c0
     nop
-
+    jmp     tile_handler_fancy              ; $c4
+    nop
 ;-----------------------------------------------------------------------------
 ; Tile data
 ;-----------------------------------------------------------------------------
@@ -419,7 +420,7 @@ tileMrFancy1:
     StringHi    " -/::\- "
     StringHi    " {_--_} "
     StringHi    "  I  I  "
-    .byte   $85,$3e,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; 
+    .byte   $c5,$3e,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; 
 
 tileGuard1:
     StringHi    "   ,_   "
@@ -455,7 +456,7 @@ tileMrFancy2:
     StringHi    " -/::\- "
     StringHi    " {_--_} "
     StringHi    "  I  I  "
-    .byte   $85,$3e,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $c5,$3e,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileGuard2:
     StringHi    "   ,_   "
