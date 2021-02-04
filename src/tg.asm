@@ -72,8 +72,8 @@ tileBoardwalkHId    =   (tileBoardwalkH         - tileSheet) / TILE_SIZE
 tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
 ; Player starting location
-START_X         = 2  
-START_Y         = 3
+START_X         = 42  ; 2  
+START_Y         = 8  ; 3
 
 ; Misc
 VASE_COUNT      = 16    ; Max number of vases in the game (must be power of 2)
@@ -1264,13 +1264,6 @@ on_door:
 ;-----------------------------------------------------------------------------
 
 .proc start_timer
-
-    ; only start timer if stateTimer is 0 or -1
-    lda     stateTimer
-    bmi     :+
-    beq     :+
-    rts
-:
     ; cheat by clearing gameTime!
     lda     #0
     sta     gameTime
@@ -1293,6 +1286,18 @@ on_door:
 
 .proc tile_handler_forest
     jsr     tile_handler_coord
+
+    ; Delay race start until dialog is finished
+    ; if state is 1, and dialog is not active, start
+    lda     state
+    beq     :+
+    ldy     #0
+    lda     (dialogPtr0),y
+    bne     :+
+
+    sty     state           ; clear state 
+    jsr     start_timer
+:
 
     ; If timer is active, display it (if possible)
     lda     stateTimer
@@ -1329,12 +1334,14 @@ on_door:
 done_timer:
     jsr     tile_adjacent
     bcs     :+
-    jmp     done
+    rts
 :
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
+    beq     :+
+    rts
+:
 
     ; check race status
     lda     stateTimer
@@ -1379,101 +1386,36 @@ done_timer:
 
 not_in_race:
 
-    ; increment dialog state
-    inc     state
-    lda     state
-    cmp     #4          ; 4 state: none + 3 dialog
-    bmi     :+
-
-    ; start timer if stateTimer is 0 or -1 (checked in subroutine)
-    jsr     start_timer
-
-    lda     #0
-    sta     state
-    jmp     display
-:   
-    jsr     sound_talk
-
-display:    
-    ; display a message based on state
-    lda     state
-    bne     :+
-    rts     ; zero = no display 
-:
-
     lda     stateTimer
-    beq     display0
-    bmi     displayM1
+    bmi     lost
+    beq     init
 
-    ; display message (stateTimer = 2)
-display2:
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogForest6
-    jmp     draw_dialog     ; link return
-:
+    ; Won!
+    ldx     #<dialogForestWon
+    ldy     #>dialogForestWon
+    jsr     set_dialog
+    rts
 
-    cmp     #2
-    bne     :+
-    lda     #dialogForest7
-    jmp     draw_dialog     ; link return
-:
+lost:
+    ldx     #<dialogForestLost
+    ldy     #>dialogForestLost
+    jsr     set_dialog
 
-    lda     #dialogForest8
-    jmp     draw_dialog     ; link return
-
-displayM1:
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogForest4
-    jmp     draw_dialog     ; link return
-:
-
-    cmp     #2
-    bne     :+
-    lda     #dialogForest5
-    jmp     draw_dialog     ; link return
-:
-
-    lda     #dialogForest3
-    jmp     draw_dialog     ; link return
-
-
-display0:
-    ; Display message (stateTimer = 0)
-
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogForest1
-    jmp     draw_dialog     ; link return
-:
-
-    cmp     #2
-    bne     :+
-    lda     #dialogForest2
-    jmp     draw_dialog     ; link return
-:
-
-    lda     #dialogForest3
-    jmp     draw_dialog     ; link return
-
-done:
-    ; if state is 2, start timer
-    lda     state
-    cmp     #3
-    bne     :+
-    jsr     start_timer
-:
-    ; reset state if player moves
-    lda     #0
+    ; start timer when dialog is finished
+    lda     #1
     sta     state
     rts
+
+init:
+    ldx     #<dialogForestInit
+    ldy     #>dialogForestInit
+    jsr     set_dialog
+
+    ; start timer when dialog is finished
+    lda     #1
+    sta     state
+    rts
+
 
 state:  .byte 0
 
@@ -1484,8 +1426,17 @@ state:  .byte 0
 ;-----------------------------------------------------------------------------
 ; uses stateHammer and stateBridge
 .proc tile_handler_fixer
-    jsr     tile_handler_coord
 
+    ; Delay bridge fix until dialog is finished
+    ; if state is 1, and dialog is not active, set bridge
+    lda     state
+    beq     :+
+    ldy     #0
+    lda     (dialogPtr0),y
+    bne     :+
+    lda     #1
+    sta     stateBridge
+:
 
     jsr     tile_adjacent
     bcs     :+
@@ -1517,7 +1468,7 @@ state:  .byte 0
 hammer:
     ; found hammer so set bridge
     lda     #1
-    sta     stateBridge
+    sta     state
 
     ldx     #<dialogFixerBridge
     ldy     #>dialogFixerBridge
@@ -1530,6 +1481,8 @@ bridge:
     ldy     #>dialogFixerDone
     jsr     set_dialog
     rts
+
+state:  .byte 0
 
 .endproc
 
@@ -2087,18 +2040,34 @@ dialogFixerDone:
             .word   textFixerDone2
             .byte   DIALOG_END
 
-; Defines
+dialogForestInit:
+            .byte   DIALOG_TALK
+            .word   textForestInit1
+            .byte   DIALOG_TALK
+            .word   textForestInit2
+            .byte   DIALOG_TALK
+            .word   textForestGo
+            .byte   DIALOG_END
 
-; DELETE
+dialogForestWon:
+            .byte   DIALOG_TALK
+            .word   textForestWon1
+            .byte   DIALOG_TALK
+            .word   textForestWon2
+            .byte   DIALOG_TALK
+            .word   textForestWon3
+            .byte   DIALOG_END
 
-dialogForest1 =     20*2
-dialogForest2 =     21*2
-dialogForest3 =     22*2
-dialogForest4 =     23*2
-dialogForest5 =     24*2
-dialogForest6 =     25*2
-dialogForest7 =     26*2
-dialogForest8 =     27*2
+dialogForestLost:
+            .byte   DIALOG_TALK
+            .word   textForestLost1
+            .byte   DIALOG_TALK
+            .word   textForestLost2
+            .byte   DIALOG_TALK
+            .word   textForestGo
+            .byte   DIALOG_END
+
+
 
 ; Standard dialog boxes are 14 wide and 4 high
 ;   --------------
@@ -2292,7 +2261,7 @@ textBed:
 
 ; Forest
 
-textForest1:
+textForestInit1:
     StringHi    "If you can run"
     .byte   $8d
     StringHi    "the forest"
@@ -2302,7 +2271,7 @@ textForest1:
     StringHi    "count down to"
     .byte   0
 
-textForest2:
+textForestInit2:
     StringHi    "zero, I'll"
     .byte   $8d
     StringHi    "give you a"
@@ -2312,34 +2281,34 @@ textForest2:
     StringHi    "when I say go."
     .byte   0
 
-textForest3:
+textForestGo:
     .byte   $8d
     .byte   $8d
     StringHi    "    GO!!!"
     .byte   0
 
-textForest4:
+textForestLost1:
     .byte   $8d
     StringHi    "Better luck"
     .byte   $8d
     StringHi    "next time."
     .byte   0
 
-textForest5:
+textForestLost2:
     .byte   $8d
     StringHi    " Want to"
     .byte   $8d
     StringHi    "try again?"
     .byte   0
 
-textForest6:
+textForestWon1:
     .byte   $8d
     StringHi    "    Wow!"
     .byte   $8d
     StringHi    " You did it!"
     .byte   0
 
-textForest7:
+textForestWon2:
     .byte   $8d
     StringHi    " You win a"
     .byte   $8d
@@ -2348,7 +2317,7 @@ textForest7:
     StringHi    "   pen!"
     .byte   0
 
-textForest8:
+textForestWon3:
     .byte   $8d
     StringHi    " Your faster"
     .byte   $8d
