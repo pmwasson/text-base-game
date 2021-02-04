@@ -356,6 +356,21 @@ loop2:
 .endproc
 
 ;-----------------------------------------------------------------------------
+; sound_quack
+;-----------------------------------------------------------------------------
+.proc sound_quack
+    lda     #35         ; tone
+    ldx     #40         ; duration
+    jsr     sound_tone
+    lda     #200        ; tone
+    ldx     #60         ; duration
+    jsr     sound_tone
+    lda     #35         ; tone
+    ldx     #40         ; duration
+    jmp     sound_tone  ; link returns
+.endproc
+
+;-----------------------------------------------------------------------------
 ; sound_door
 ;-----------------------------------------------------------------------------
 .proc sound_door
@@ -1583,6 +1598,11 @@ state:  .byte 0
     bne     :+
 
     jsr     askey_portrait
+
+    ldx     #<dialogPortrait
+    ldy     #>dialogPortrait
+    jsr     set_dialog
+
 :
     rts
 
@@ -1597,10 +1617,6 @@ state:  .byte 0
 
     jsr     tile_adjacent
     bcs     :+
-
-    ; not near, reset state and exit
-    lda     #0
-    sta     state
     rts
 :
 
@@ -1616,20 +1632,47 @@ state:  .byte 0
     lda     lastKey
     cmp     #KEY_WAIT
     bne     :+
-    lda     #10         ; how long to display text
-    sta     state
     jsr     sound_bark
+    inc     textX
+    inc     textX
+    lda     #<dogText
+    sta     textPtr0
+    lda     #>dogText
+    sta     textPtr1
+    jsr     tile_print
 :
 
-    lda     state
-    beq     :+
-    dec     state
+    rts
 
+dogText:
+    .byte   $8d
+    StringHi    "BARK!"
+    .byte   0
+
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_duck
+;-----------------------------------------------------------------------------
+.proc tile_handler_duck
+
+    jsr     tile_handler_coord
+
+    jsr     tile_adjacent
+    bcs     :+
+    rts
+:
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     :+
+    jsr     sound_quack
     inc     textX
-    inc     textX
-    lda     #<dogText1
+    lda     #<duckText
     sta     textPtr0
-    lda     #>dogText1
+    lda     #>duckText
     sta     textPtr1
     jsr     tile_print
 :
@@ -1637,9 +1680,9 @@ state:  .byte 0
     rts
 
 state:  .byte   0
-dogText1:
+duckText:
     .byte   $8d
-    StringHi    "BARK!"
+    StringHi    "Quack!"
     .byte   0
 
 
@@ -1801,11 +1844,11 @@ broken_vase:
     jsr     $c300
     jsr     HOME
     jsr     inline_print
-    StringQuoteReturn   "  @Good boy!@"
+    StringQuoteReturn   ""
     StringQuoteReturn   "                >=~y,,                   Congratulations, you found Askey!"
-    StringQuoteReturn   "             (;-=    C@/."
-    StringQuoteReturn   "           >^<-yrC-   \[ `-                  Thanks for playing!"
-    StringQuoteReturn   "     ;g@\`     ^^@    ]F   >,"
+    StringQuoteReturn   "             (;-=    C@/.                      Thanks for playing!"
+    StringQuoteReturn   "           >^<-yrC-   \[ `-"
+    StringQuoteReturn   "     ;g@\`     ^^@    ]F   >,             Written, February 2021, for ASE"
     StringQuoteReturn   "     V~s             ^A     ]"
     StringQuoteReturn   "      'v    ,=,   . ,@       L"
     StringQuoteReturn   "         ,@--@*\>  [@       /@           _,>,ww~=~r-~+.c"
@@ -1821,8 +1864,9 @@ broken_vase:
     StringQuoteReturn   "                    \  ]`'[   [@@-         ^~=-'            ]  C"
     StringQuoteReturn   "                    /  |  }   L                            /\  ]"
     StringQuoteReturn   "                 ]*-   /  |   C                            *^^^*"
-    StringQuoteReturn   "                  @@@@-  r    |"
-    StringQuoteReturn   "                         '*==*                     by Paul Wasson, 2021"
+    StringQuoteReturn   "                  @@@@-  r    |    Programming......................Paul Wasson"
+    StringQuoteReturn   "                         '*==*     Script and plot consultant.......Lisa Wasson"
+    StringQuoteReturn   "                                   Game tester....................Sophia Wasson"
     .byte               0
     jsr     RDKEY
 
@@ -1956,6 +2000,11 @@ DIALOG_THOUGHT =    2
 dialogInit: 
             .byte   DIALOG_THOUGHT
             .word   textInit
+            .byte   DIALOG_END
+
+dialogPortrait: 
+            .byte   DIALOG_THOUGHT
+            .word   textPortrait
             .byte   DIALOG_END
 
 dialogJr:   
@@ -2323,6 +2372,16 @@ textForestWon3:
     .byte   $8d
     StringHi    "than Mr. Zip!"
     .byte   0
+
+textPortrait:
+    .byte   $8d
+    StringHi    "  What a good boy!"
+    .byte   $8d
+    StringHi    "  (Press ESC to"
+    .byte   $8d
+    StringHi    "   quit game)"
+    .byte   0    
+
 
 ;-----------------------------------------------------------------------------
 ; Count down

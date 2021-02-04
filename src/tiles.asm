@@ -52,6 +52,8 @@ tile_jump_table:
     nop
     jmp     tile_handler_marker             ; $bc
     nop
+    jmp     tile_handler_duck               ; $c0
+    nop
 
 ;-----------------------------------------------------------------------------
 ; Tile data
@@ -199,23 +201,23 @@ tileWater1:
     .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
 tileDuckL1:
+    StringHi    ") ( ) ( "
     StringHi    "( ) ( ) "
     StringHi    "   _  ( "
     StringHi    " =(o)__ "
     StringHi    "  (___/ "
     StringHi    "(       "
-    StringHi    ") ( ) ( "
-    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
+    .byte   $c1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
 
 tileDuckR1:
+    StringHi    ") ( ) ( "
     StringHi    "( ) ( ) "
     StringHi    ")   _   "
     StringHi    " __(o)= "
     StringHi    " \___)  "
     StringHi    "        "
-    StringHi    ") ( ) ( "
-    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
+    .byte   $c1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
 ; filler
     StringHi    "        "
@@ -237,22 +239,22 @@ tileWater2:
 
 
 tileDuckL2:
+    StringHi    "( ) ( ) "
     StringHi    ") ( ) ( "
     StringHi    "   _  ) "
     StringHi    " =(o)__ "
     StringHi    "  (___/ "
     StringHi    ")       "
-    StringHi    "( ) ( ) "
-    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
+    .byte   $c1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
 tileDuckR2:
+    StringHi    "( ) ( ) "
     StringHi    ") ( ) ( "
     StringHi    "(   _   "
     StringHi    " __(o)= "
     StringHi    " \___)  "
     StringHi    "        "
-    StringHi    "( ) ( ) "
-    .byte   1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
+    .byte   $c1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking, animated
 
 ; filler
     StringHi    "        "
