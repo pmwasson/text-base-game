@@ -379,7 +379,6 @@ loop2:
     jmp     sound_tone  ; link return
 .endproc
 
-
 ;-----------------------------------------------------------------------------
 ; sound_crash
 ;-----------------------------------------------------------------------------
@@ -629,13 +628,15 @@ index:      .byte   0
 .endproc
 
 ;-----------------------------------------------------------------------------
-; fill_screen
+; fill_screen (screen1)
 ;-----------------------------------------------------------------------------
 
 .proc fill_screen
     ldx     #0
 loop:
     lda     #$a0
+
+    ; 8 starting points, 3 rows each = 24 rows
     sta     $400,x
     sta     $480,x
     sta     $500,x
@@ -651,9 +652,32 @@ loop:
 .endproc
 
 ;-----------------------------------------------------------------------------
+; draw_char
+; y = row
+; a = col
+; x = character
+;
+; Only use this routine for special overwriting of a single character.
+; Should use draw_tile or tile_print for fast results
+;-----------------------------------------------------------------------------
+.proc draw_char
+    clc
+    adc     lineOffset,y    ; + lineOffset
+    sta     screenPtr0    
+    lda     linePage,y
+    adc     drawPage        ; previous carry should be clear
+    sta     screenPtr1
+    ldy     #0
+    txa
+    sta     (screenPtr0),y
+    rts
+.endproc
+
+;-----------------------------------------------------------------------------
 ; draw_tile
 ;-----------------------------------------------------------------------------
 ; Tiles are 48 bytes, but pad to 64 so no page crossings
+; Use padding bits for additional information, such as animation speed
 
 .proc draw_tile
     ; calculate tile pointer
@@ -730,6 +754,202 @@ skip:
 
 ; locals
 temp:       .byte   0
+
+.endproc
+
+
+;-----------------------------------------------------------------------------
+; set_dialog
+;-----------------------------------------------------------------------------
+; Start a dialog chain
+
+.proc set_dialog
+    ; set pointer
+    stx     dialogPtr0
+    sty     dialogPtr1
+
+    ; save position
+    lda     mapCacheIndex
+    sta     dialogCacheIndex
+
+    ; keypress has already been handled
+    lda     #KEY_IDLE
+    sta     dialogKey
+
+    rts
+.endproc
+
+
+
+;-----------------------------------------------------------------------------
+; draw_dialog
+;-----------------------------------------------------------------------------
+.proc draw_dialog
+
+    ; Position the dialog box based on position
+    lda     dialogCacheIndex
+
+    ; if above, use tile 1,0
+    cmp     #CACHE_UP
+    bne     :+
+
+    lda     #TILE_HEIGHT*0  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*1   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 2,1
+    lda     #TILE_WIDTH*2
+    ldy     #TILE_HEIGHT*1
+    ldx     #'\' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; if left, use tile 0,1
+    cmp     #CACHE_LEFT
+    bne     :+
+
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*0   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 1,2
+    lda     #TILE_WIDTH*1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'\' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; if right, use tile 3,1
+    cmp     #CACHE_RIGHT
+    bne     :+
+
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*3   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 3,2
+    lda     #TILE_WIDTH*4-1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'/' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; if down, use tile 3,3
+    cmp     #CACHE_DOWN
+    bne     :+
+
+    lda     #TILE_HEIGHT*3  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*3   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Upper right of tile 2,3
+    ; (down one row)
+    lda     #TILE_WIDTH*3-1
+    ldy     #TILE_HEIGHT*3+1
+    ldx     #'_' + $80
+    jsr     draw_char
+    jmp     dialog
+:
+
+    ; Must be middle (player), use tile 2,1
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*2   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw dialog stem directly on screen
+    ; Upper right of tile 2,2
+    lda     #TILE_WIDTH*3-1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'/' + $80
+    jsr     draw_char
+
+dialog:
+    ; draw box
+    lda     #tileDialogLId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileDialogRId
+    jsr     draw_tile
+
+    ; set text starting point
+    inc     textX
+    inc     textY
+
+    ; draw text
+    jmp     tile_print      ; link return
+
+dialogIndex:    .byte   0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; draw_thought
+;-----------------------------------------------------------------------------
+.proc draw_thought
+
+    ; use tile 1,1
+    lda     #TILE_HEIGHT*1  ; row
+    sta     tileY
+    sta     textY
+    lda     #TILE_WIDTH*1   ; col 
+    sta     tileX
+    sta     textX
+
+    ; Draw thought bubble directly on screen
+    ; Upper right of tile 2,2
+    lda     #TILE_WIDTH*3-1
+    ldy     #TILE_HEIGHT*2
+    ldx     #'o' + $80
+    jsr     draw_char
+
+dialog:
+    ; draw box
+    lda     #tileThoughtLId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileThoughtMId
+    jsr     draw_tile
+    clc     
+    lda     tileX
+    adc     #TILE_WIDTH
+    sta     tileX
+    lda     #tileThoughtRId
+    jsr     draw_tile
+
+    ; set text starting point
+    inc     textX
+    inc     textX
+    inc     textY
+
+    ; draw text
+    jmp     tile_print      ; link return
 
 .endproc
 
@@ -870,177 +1090,6 @@ nextX:      .byte   0
 .endproc
 
 
-;-----------------------------------------------------------------------------
-; draw_char
-; y = row
-; a = col
-; x = character
-;-----------------------------------------------------------------------------
-.proc draw_char
-    clc
-    adc     lineOffset,y    ; + lineOffset
-    sta     screenPtr0    
-    lda     linePage,y
-    adc     drawPage        ; previous carry should be clear
-    sta     screenPtr1
-    ldy     #0
-    txa
-    sta     (screenPtr0),y
-    rts
-.endproc
-
-;-----------------------------------------------------------------------------
-; draw_dialog
-;-----------------------------------------------------------------------------
-.proc draw_dialog
-
-    ; Position the dialog box based on position
-    lda     dialogCacheIndex
-
-    ; if above, use tile 1,0
-    cmp     #CACHE_UP
-    bne     :+
-
-    lda     #TILE_HEIGHT*0  ; row
-    sta     tileY
-    sta     textY
-    lda     #TILE_WIDTH*1   ; col 
-    sta     tileX
-    sta     textX
-
-    ; Draw dialog stem directly on screen
-    ; Upper right of tile 2,1
-    lda     #TILE_WIDTH*2
-    ldy     #TILE_HEIGHT*1
-    ldx     #'\' + $80
-    jsr     draw_char
-    jmp     dialog
-:
-
-    ; if left, use tile 0,1
-    cmp     #CACHE_LEFT
-    bne     :+
-
-    lda     #TILE_HEIGHT*1  ; row
-    sta     tileY
-    sta     textY
-    lda     #TILE_WIDTH*0   ; col 
-    sta     tileX
-    sta     textX
-
-    ; Draw dialog stem directly on screen
-    ; Upper right of tile 1,2
-    lda     #TILE_WIDTH*1
-    ldy     #TILE_HEIGHT*2
-    ldx     #'\' + $80
-    jsr     draw_char
-    jmp     dialog
-:
-
-    ; if right, use tile 3,1
-    cmp     #CACHE_RIGHT
-    bne     :+
-
-    lda     #TILE_HEIGHT*1  ; row
-    sta     tileY
-    sta     textY
-    lda     #TILE_WIDTH*3   ; col 
-    sta     tileX
-    sta     textX
-
-    ; Draw dialog stem directly on screen
-    ; Upper right of tile 3,2
-    lda     #TILE_WIDTH*4-1
-    ldy     #TILE_HEIGHT*2
-    ldx     #'/' + $80
-    jsr     draw_char
-    jmp     dialog
-:
-    ; Assume it down
-    ; Use tile 3,3
-    lda     #TILE_HEIGHT*3  ; row
-    sta     tileY
-    sta     textY
-    lda     #TILE_WIDTH*3   ; col 
-    sta     tileX
-    sta     textX
-
-    ; Draw dialog stem directly on screen
-    ; Upper right of tile 2,3
-    ; (down one row)
-    lda     #TILE_WIDTH*3-1
-    ldy     #TILE_HEIGHT*3+1
-    ldx     #'_' + $80
-    jsr     draw_char
-
-dialog:
-    ; draw box
-    lda     #tileDialogLId
-    jsr     draw_tile
-    clc     
-    lda     tileX
-    adc     #TILE_WIDTH
-    sta     tileX
-    lda     #tileDialogRId
-    jsr     draw_tile
-
-    ; set text starting point
-    inc     textX
-    inc     textY
-
-    ; draw text
-    jmp     tile_print      ; link return
-
-dialogIndex:    .byte   0
-
-.endproc
-
-;-----------------------------------------------------------------------------
-; draw_thought
-;-----------------------------------------------------------------------------
-.proc draw_thought
-
-    ; use tile 1,1
-    lda     #TILE_HEIGHT*1  ; row
-    sta     tileY
-    sta     textY
-    lda     #TILE_WIDTH*1   ; col 
-    sta     tileX
-    sta     textX
-
-    ; Draw thought bubble directly on screen
-    ; Upper right of tile 2,2
-    lda     #TILE_WIDTH*3-1
-    ldy     #TILE_HEIGHT*2
-    ldx     #'o' + $80
-    jsr     draw_char
-
-dialog:
-    ; draw box
-    lda     #tileThoughtLId
-    jsr     draw_tile
-    clc     
-    lda     tileX
-    adc     #TILE_WIDTH
-    sta     tileX
-    lda     #tileThoughtMId
-    jsr     draw_tile
-    clc     
-    lda     tileX
-    adc     #TILE_WIDTH
-    sta     tileX
-    lda     #tileThoughtRId
-    jsr     draw_tile
-
-    ; set text starting point
-    inc     textX
-    inc     textX
-    inc     textY
-
-    ; draw text
-    jmp     tile_print      ; link return
-
-.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_sign
@@ -1121,34 +1170,15 @@ signTrail:
     jsr     tile_adjacent
     bcc     on_door
 
-
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
+    bne     on_door
 
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
-    bne     :+
-    rts     ; zero = no display 
-:
-
-    ; Display message
-    lda     #dialogDoor
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
-    rts
-
-    ; Play a sound as the player steps through a door
+    ; set up dialog
+    ldx     #<dialogDoor
+    ldy     #>dialogDoor
+    jsr     set_dialog
 
 on_door:
     ; is player on the door?
@@ -1169,92 +1199,36 @@ on_door:
 :
     jmp     sound_door      ; link return
 
-state:  .byte 0
-
 .endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_guard
 ;-----------------------------------------------------------------------------
 .proc tile_handler_guard
-    jsr     tile_handler_coord
-
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    inc     state
-    lda     state
-    cmp     #3
-    bmi     :+
-    lda     #0
-    sta     state
-    jmp     display
-:   
-    jsr     sound_talk
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogGuard
+    ldy     #>dialogGuard
+    jsr     set_dialog
 :
-
-    ; Display message
-
-    ; 1 = hi
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogGuard1
-    jmp     draw_dialog     ; link return
-
-:
-    ; 2 = hows it going
-
-    lda     #dialogGuard2
-    jmp     draw_dialog     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
 
 .endproc
 
 
-;-----------------------------------------------------------------------------
-; set_dialog
-;-----------------------------------------------------------------------------
-.proc set_dialog
-    ; set pointer
-    stx     dialogPtr0
-    sty     dialogPtr1
 
-    ; save position
-    lda     mapCacheIndex
-    sta     dialogCacheIndex
-
-    ; keypress has already been handled
-    lda     #KEY_IDLE
-    sta     dialogKey
-
-    rts
-.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_jr
 ;-----------------------------------------------------------------------------
 .proc tile_handler_jr
-    jsr     tile_handler_coord
-
     jsr     tile_adjacent
     bcc     :+
 
@@ -1508,138 +1482,75 @@ state:  .byte 0
 ;-----------------------------------------------------------------------------
 ; tile_handler_fixer
 ;-----------------------------------------------------------------------------
-; uses 3 state, local state, stateHammer and stateBridge
+; uses stateHammer and stateBridge
 .proc tile_handler_fixer
     jsr     tile_handler_coord
 
+
     jsr     tile_adjacent
-    bcc     done
+    bcs     :+
+    rts
+:
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    inc     state
-    lda     state
-    cmp     #3          ; 3 state: none + 2 dialog
-    bmi     :+
-    lda     #0
-    sta     state
-    jmp     display
-:   
-    jsr     sound_talk
-
-    ; fix bridge after hitting wait
-    ; if hammer set and state 2, mark bridge fixed
-    lda     stateHammer
     beq     :+
-    lda     state
-    cmp     #2
-    bne     :+
+    rts
+:
+
     lda     stateBridge
-    ora     #1
-    sta     stateBridge
-:
+    bne     bridge
 
-display:    
-    ; display a message based on state
-    lda     state
-    bne     :+
-    rts     ; zero = no display 
-:
-
-    ; Display message
+    ; no bridge
 
     lda     stateHammer
-    bne     foundHammer
+    bne     hammer
 
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogFixer1
-    jmp     draw_dialog     ; link return
-:
+    ; no hammer
 
-    lda     #dialogFixer2
-    jmp     draw_dialog     ; link return
-
-foundHammer:
-    lda     stateBridge
-    bne     bridgeFixed
-    lda     #dialogFixer3
-    jmp     draw_dialog     ; link return
-
-bridgeFixed:
-    ; 1
-    lda     state
-    cmp     #1
-    bne     :+
-    lda     #dialogFixer4
-    jmp     draw_dialog     ; link return
-:
-
-    lda     #dialogFixer5
-    jmp     draw_dialog     ; link return
-
-done:
-
-    ; fix bridge if state not zero and found hammer
-    ; this handles the case of the player walking away
-    lda     stateHammer
-    beq     :+
-    lda     state
-    beq     :+
-    lda     stateBridge
-    ora     #1
-    sta     stateBridge
-:
-    ; reset state if player moves
-    lda     #0
-    sta     state
+    ldx     #<dialogFixerInit
+    ldy     #>dialogFixerInit
+    jsr     set_dialog
     rts
 
-state:  .byte 0
+hammer:
+    ; found hammer so set bridge
+    lda     #1
+    sta     stateBridge
+
+    ldx     #<dialogFixerBridge
+    ldy     #>dialogFixerBridge
+    jsr     set_dialog
+    rts
+
+bridge:
+    ; bridge fixed
+    ldx     #<dialogFixerDone
+    ldy     #>dialogFixerDone
+    jsr     set_dialog
+    rts
 
 .endproc
 
 ;-----------------------------------------------------------------------------
-; tile_handler_dog_house
+; tile_handler_doghouse
 ;-----------------------------------------------------------------------------
-.proc tile_handler_dog_house
-    jsr     tile_handler_coord
-
+.proc tile_handler_doghouse
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogDoghouse
+    ldy     #>dialogDoghouse
+    jsr     set_dialog
 :
-
-    ; Display message
-    lda     #dialogDogHouse
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
 
 .endproc
 
@@ -1647,38 +1558,20 @@ state:  .byte 0
 ; tile_handler_mailbox
 ;-----------------------------------------------------------------------------
 .proc tile_handler_mailbox
-    jsr     tile_handler_coord
-
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogMailbox
+    ldy     #>dialogMailbox
+    jsr     set_dialog
 :
-
-    ; Display message
-    lda     #dialogMailbox1
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
 
 .endproc
 
@@ -1686,117 +1579,41 @@ state:  .byte 0
 ; tile_handler_fence
 ;-----------------------------------------------------------------------------
 .proc tile_handler_fence
-    jsr     tile_handler_coord
-
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogFence
+    ldy     #>dialogFence
+    jsr     set_dialog
 :
-
-    ; Display message
-    lda     #dialogFence
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
 
 .endproc
 
 ;-----------------------------------------------------------------------------
-; tile_handler_bed1
+; tile_handler_bed
 ;-----------------------------------------------------------------------------
-.proc tile_handler_bed1
-    jsr     tile_handler_coord
-
+.proc tile_handler_bed
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; set up dialog
+    ldx     #<dialogBed
+    ldy     #>dialogBed
+    jsr     set_dialog
 :
-
-    ; Display message
-    lda     #dialogBed1
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
-
-state:  .byte 0
-
-.endproc
-
-
-;-----------------------------------------------------------------------------
-; tile_handler_bed2
-;-----------------------------------------------------------------------------
-.proc tile_handler_bed2
-    jsr     tile_handler_coord
-
-    jsr     tile_adjacent
-    bcc     done
-
-    ; check if hit action key
-    lda     lastKey
-    cmp     #KEY_WAIT
-    bne     display
-
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
-    bne     :+
-    rts     ; zero = no display 
-:
-
-    ; Display message
-    lda     #dialogBed2
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
-    rts
-
-state:  .byte 0
 
 .endproc
 
@@ -1889,37 +1706,29 @@ dogText1:
 
     lda     #tileGrassId
     jsr     draw_tile
+    ; if hammer is picked up, nothing else to do
+    rts
 :
 
-    ; update state
+    ; hammer not picked up yet
 
     ; check if player on hammer
     lda     mapCacheIndex
     cmp     #CACHE_CENTER
-    beq     on_hammer
+    beq     :+
+    ; player not on hammer, so nothing else to do
+    rts
 
-    ; if not, and state is -1, change to 1
-    lda     stateHammer
-    bpl     :+
+:
+    ; change state, play sound and show dialog
     lda     #1
     sta     stateHammer
-:
-    rts
 
-on_hammer:
-    ; if state -1, display message
-    lda     stateHammer
-    bpl     :+
-
-    lda     #dialogHammer
-    jsr     draw_thought
-    rts
-:
-    ; if state 0, change to -1
-    bne     :+
-    dec     stateHammer
     jsr     sound_pickup
-:
+
+    ldx     #<dialogHammer
+    ldy     #>dialogHammer
+    jsr     set_dialog
     rts
   
 .endproc
@@ -1927,12 +1736,7 @@ on_hammer:
 ;-----------------------------------------------------------------------------
 ; tile_handler_vase
 ;-----------------------------------------------------------------------------
-; stateVase[]: 0 = good, -1 = picking up, 1 = broken
-
-; I have a bug, that if there are 2 vases shown the local state gets
-; reset for the display.  It can be fixed by using an array for the
-; display state, but I chose to work around it by changing the map
-; to not have the vases that close together.
+; stateVase[]: 0 = good, 1 = broken
 
 .proc tile_handler_vase
     jsr     tile_handler_coord
@@ -1940,94 +1744,71 @@ on_hammer:
     ; show broken vase if state not zero
     lda     specialX
     and     #VASE_COUNT-1
-    sta     vaseIndex
     tax
     lda     stateVase,x
-    beq     :+
+    bne     broken_vase
 
-    lda     #tileVaseBrokenId
-    jsr     draw_tile
-:
-
-    ; update state
+    ; vase is not broken
 
     ; check if player on vase
     lda     mapCacheIndex
     cmp     #CACHE_CENTER
-    beq     on_vase
+    bne     not_on_good_vase
 
-    ; if not, and state is -1, change to 1
-    ldx     vaseIndex
-    lda     stateVase,x
-    bpl     :+
+    ; set vase to broken
     lda     #1
     sta     stateVase,x
-:
+    sta     stateAnyVase
 
-    ; use local state for dialog
+    ; display dialog
+    ldx     #<dialogVaseBreak
+    ldy     #>dialogVaseBreak
+    jsr     set_dialog
 
+    ; CRASH!
+    jsr     sound_crash
+
+    rts
+
+not_on_good_vase:
+
+    ; check if next to vase
     jsr     tile_adjacent
-    bcc     done
+    bcc     :+
 
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
-    bne     display
-
-    ; toggle local state
-    lda     state
-    eor     #1
-    sta     state
-
-display:    
-    ; display a message based on state
-    lda     state
     bne     :+
-    rts     ; zero = no display 
+
+    ; display dialog
+    ldx     #<dialogVaseGood
+    ldy     #>dialogVaseGood
+    jsr     set_dialog
 :
-
-    ; Display message
-
-    ldx     vaseIndex
-    lda     stateVase,x
-    beq     :+
-    lda     #dialogVase3
-    jmp     draw_thought     ; link return
-
-:
-    lda     #dialogVase1
-    jmp     draw_thought     ; link return
-
-done:
-    ; reset state if player moves
-    lda     #0
-    sta     state
     rts
 
 
-on_vase:
-    ; if state -1, display message
-    ldx     vaseIndex
-    lda     stateVase,x
-    bpl     :+
+broken_vase:
+    ; draw broken vase
+    lda     #tileVaseBrokenId
+    jsr     draw_tile
 
-    lda     #dialogVase2
-    jsr     draw_thought
-    rts
-:
-    ; if state 0, change to -1
+    ; check if next to vase
+    jsr     tile_adjacent
+    bcc     :+
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
     bne     :+
-    dec     stateVase,x
-    jsr     sound_pickup
-    jsr     sound_crash
-    lda     stateAnyVase
-    ora     #1
-    sta     stateAnyVase
+
+    ; display dialog
+    ldx     #<dialogVaseBad
+    ldy     #>dialogVaseBad
+    jsr     set_dialog
 :
     rts
-  
-vaseIndex:  .byte   0
-state:      .byte   0   ; only use for dialog
 
 .endproc
 
@@ -2219,11 +2000,13 @@ DIALOG_END =        0
 DIALOG_TALK =       1
 DIALOG_THOUGHT =    2
 
-dialogInit: .byte   DIALOG_THOUGHT
-            .word   textDogHouse
+dialogInit: 
+            .byte   DIALOG_THOUGHT
+            .word   textInit
             .byte   DIALOG_END
 
-dialogJr:   .byte   DIALOG_TALK
+dialogJr:   
+            .byte   DIALOG_TALK
             .word   textJr1
             .byte   DIALOG_TALK
             .word   textJr2
@@ -2231,28 +2014,83 @@ dialogJr:   .byte   DIALOG_TALK
             .word   textJr3
             .byte   DIALOG_END
 
+dialogGuard:
+            .byte   DIALOG_TALK
+            .word   textGuard1
+            .byte   DIALOG_TALK
+            .word   textGuard2
+            .byte   DIALOG_END
+
+dialogDoor: 
+            .byte   DIALOG_THOUGHT
+            .word   textDoor
+            .byte   DIALOG_END
+
+dialogDoghouse: 
+            .byte   DIALOG_THOUGHT
+            .word   textDoghouse
+            .byte   DIALOG_END
+
+dialogFence: 
+            .byte   DIALOG_THOUGHT
+            .word   textFence
+            .byte   DIALOG_END
+
+dialogMailbox: 
+            .byte   DIALOG_THOUGHT
+            .word   textMailbox1
+            .byte   DIALOG_END
+
+dialogHammer: 
+            .byte   DIALOG_THOUGHT
+            .word   textHammer
+            .byte   DIALOG_END
+
+dialogVaseGood: 
+            .byte   DIALOG_THOUGHT
+            .word   textVaseGood
+            .byte   DIALOG_END
+
+dialogVaseBreak: 
+            .byte   DIALOG_TALK
+            .word   textVaseBreak1
+            .byte   DIALOG_THOUGHT
+            .word   textVaseBreak2
+            .byte   DIALOG_END
+
+dialogVaseBad: 
+            .byte   DIALOG_THOUGHT
+            .word   textVaseBad
+            .byte   DIALOG_END
+
+dialogBed: 
+            .byte   DIALOG_THOUGHT
+            .word   textBed
+            .byte   DIALOG_END
+
+dialogFixerInit:
+            .byte   DIALOG_TALK
+            .word   textFixerInit1
+            .byte   DIALOG_TALK
+            .word   textFixerInit2
+            .byte   DIALOG_END
+
+dialogFixerBridge:
+            .byte   DIALOG_TALK
+            .word   textFixerBridge
+            .byte   DIALOG_END
+
+dialogFixerDone:
+            .byte   DIALOG_TALK
+            .word   textFixerDone1
+            .byte   DIALOG_TALK
+            .word   textFixerDone2
+            .byte   DIALOG_END
+
 ; Defines
 
-dialogGuard1 =      0*2
-dialogGuard2 =      1*2
-dialogDogHouse =    2*2
-dialogFence =       3*2
-dialogHammer =      4*2
-dialogJr1 =         5*2
-dialogJr2 =         6*2
-dialogJr3 =         7*2
-dialogFixer1 =      8*2
-dialogFixer2 =      9*2
-dialogFixer3 =      10*2
-dialogFixer4 =      11*2
-dialogFixer5 =      12*2
-dialogMailbox1 =    13*2
-dialogVase1 =       14*2
-dialogVase2 =       15*2
-dialogVase3 =       16*2
-dialogDoor =        17*2
-dialogBed1 =        18*2
-dialogBed2 =        19*2
+; DELETE
+
 dialogForest1 =     20*2
 dialogForest2 =     21*2
 dialogForest3 =     22*2
@@ -2261,38 +2099,6 @@ dialogForest5 =     24*2
 dialogForest6 =     25*2
 dialogForest7 =     26*2
 dialogForest8 =     27*2
-
-; Lookup table
-
-dialogTable:
-    .word   textGuard1
-    .word   textGuard2
-    .word   textDogHouse
-    .word   textFence
-    .word   textHammer
-    .word   textJr1
-    .word   textJr2
-    .word   textJr3
-    .word   textFixer1
-    .word   textFixer2
-    .word   textFixer3
-    .word   textFixer4
-    .word   textFixer5
-    .word   textMailbox1
-    .word   textVase1
-    .word   textVase2
-    .word   textVase3
-    .word   textDoor
-    .word   textBed1
-    .word   textBed2
-    .word   textForest1
-    .word   textForest2
-    .word   textForest3
-    .word   textForest4
-    .word   textForest5
-    .word   textForest6
-    .word   textForest7
-    .word   textForest8
 
 ; Standard dialog boxes are 14 wide and 4 high
 ;   --------------
@@ -2312,6 +2118,12 @@ dialogTable:
 
 ; Guard
 
+textInit:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "  Where's Askey's?"
+    .byte   0
+
 textGuard1:
     .byte   $8d
     .byte   $8d
@@ -2327,10 +2139,11 @@ textGuard2:
 
 ; Dog House
 
-textDogHouse:
+textDoghouse:
     .byte   $8d
+    StringHi    "   Askey's doghouse"
     .byte   $8d
-    StringHi    "  Where is Askey?"
+    StringHi    "      is empty."
     .byte   0
 
 ; Fence
@@ -2381,7 +2194,7 @@ textJr3:
 
 ; Fixer
 
-textFixer1:
+textFixerInit1:
     StringHi    "I came to fix"
     .byte   $8d
     StringHi    "the bridge."
@@ -2391,7 +2204,7 @@ textFixer1:
     StringHi    "hammer."
     .byte   0
 
-textFixer2:
+textFixerInit2:
     .byte   $8d
     StringHi    " I think it"
     .byte   $8d
@@ -2400,7 +2213,7 @@ textFixer2:
     StringHi    " the forest."
     .byte   0
 
-textFixer3:
+textFixerBridge:
     StringHi    "You found my"
     .byte   $8d
     StringHi    "hammer! I'll"
@@ -2410,7 +2223,7 @@ textFixer3:
     StringHi    "in no time."
     .byte   0
 
-textFixer4:
+textFixerDone1:
     .byte   $8d
     StringHi    "  Thanks for "
     .byte   $8d
@@ -2419,7 +2232,7 @@ textFixer4:
     StringHi    "  hammer."
     .byte   0
 
-textFixer5:
+textFixerDone2:
     .byte   $8d
     StringHi    "Hope you can"
     .byte   $8d
@@ -2436,21 +2249,26 @@ textMailbox1:
 
 ; Vase
 
-textVase1:
+textVaseGood:
     .byte   $8d
     StringHi    "That vase looks pretty"
     .byte   $8d
     StringHi    "      fancy!"
     .byte   0
 
-textVase2:
+textVaseBreak1:
+    .byte   $8d
+    StringHi    " C R A S H !!"
+    .byte   0
+
+textVaseBreak2:
     .byte   $8d
     StringHi    "      Oh no!"
     .byte   $8d
     StringHi    " The vase slipped!"
     .byte   0
 
-textVase3:
+textVaseBad:
     .byte   $8d
     .byte   $8d
     StringHi    "Oh man, its busted."
@@ -2464,18 +2282,12 @@ textDoor:
     StringHi    "The door is unlocked."
     .byte   0
 
-; Bed x2
+; Bed
 
-textBed1:
+textBed:
     .byte   $8d
     .byte   $8d
     StringHi    "  I'm not tired."
-    .byte   0
-
-textBed2:
-    .byte   $8d
-    .byte   $8d
-    StringHi    "   Not sleepy."
     .byte   0
 
 ; Forest

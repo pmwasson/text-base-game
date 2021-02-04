@@ -28,7 +28,7 @@ tile_jump_table:
     nop
     jmp     tile_handler_door               ; $8c
     nop
-    jmp     tile_handler_dog_house          ; $90
+    jmp     tile_handler_doghouse           ; $90
     nop
     jmp     tile_handler_fence              ; $94
     nop
@@ -44,15 +44,13 @@ tile_jump_table:
     nop
     jmp     tile_handler_vase               ; $ac
     nop
-    jmp     tile_handler_bed1               ; $b0
+    jmp     tile_handler_bed                ; $b0
     nop
-    jmp     tile_handler_bed2               ; $b4
+    jmp     tile_handler_easel              ; $b4
     nop
     jmp     tile_handler_forest             ; $b8
     nop
     jmp     tile_handler_marker             ; $bc
-    nop
-    jmp     tile_handler_easel              ; $c0
     nop
 
 ;-----------------------------------------------------------------------------
@@ -287,7 +285,7 @@ tileSign:
     StringHi    "  ,||.  "
     .byte   $80+0*4+1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; Special (0)
 
-tileDogHouse:
+tileDoghouse:
     StringHi    "  /=\   "
     StringHi    " /===\  "
     StringHi    "/ASKEY\ "
@@ -388,7 +386,7 @@ tileBed2:
     StringHi    "---()//|"
     StringHi    "___||/  "
     StringHi    "   ||   "
-    .byte   $b5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0    ; blocking
+    .byte   $b1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0    ; blocking
 
     .res    64*(16 - 7)
 
@@ -791,7 +789,7 @@ tileEasel:
     StringBlock " %%%%%  "
     StringBlock " | | |  "
     StringBlock " |   |  "
-    .byte   $c1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+    .byte   $b5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
 tilePen:
     StringHi    "        "
