@@ -1399,7 +1399,26 @@ on_door:
 
 .endproc
 
+;-----------------------------------------------------------------------------
+; tile_handler_painter
+;-----------------------------------------------------------------------------
+.proc tile_handler_painter
+    jsr     tile_adjacent
+    bcc     :+
 
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     :+
+
+    ; set up dialog
+    ldx     #<dialogPainter
+    ldy     #>dialogPainter
+    jsr     set_dialog
+:
+    rts
+
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; tile_handler_fancy
@@ -2209,7 +2228,7 @@ broken_vase:
     StringQuoteReturn   "                 ]*-   /  |   C                            *^^^*"
     StringQuoteReturn   "                  @@@@-  r    |"
     StringQuoteReturn   "                         '*==*          Written by Paul Wasson, February 2021"
-    StringQuoteReturn   "                                           For the ASE text-only game contest"
+    StringQuoteReturn   "                                          For the A2SE text-only game contest"
     .byte               0
     jsr     RDKEY
 
@@ -2537,6 +2556,11 @@ dialogPaintingFancy:
             .word   textPaintingFancy1
             .byte   DIALOG_LETTER
             .word   textPaintingFancy2
+            .byte   DIALOG_END
+
+dialogPainter:
+            .byte   DIALOG_TALK
+            .word   textPainter
             .byte   DIALOG_END
 
 ; Standard dialog boxes are 14 wide and 4 high
@@ -3048,6 +3072,15 @@ textPaintingFancy2:
     StringHi    "                   ..........."    
     .byte   0
  
+
+ textPainter:
+    .byte   $8d
+    StringHi    " I'm working"
+    .byte   $8d
+    StringHi    "    on my"
+    .byte   $8d
+    StringHi    " masterpiece!"
+    .byte   0
 
 ;-----------------------------------------------------------------------------
 ; Painting lookup

@@ -58,6 +58,8 @@ tile_jump_table:
     nop
     jmp     tile_handler_painting           ; $c8
     nop
+    jmp     tile_handler_painter            ; $cc
+    nop
 
 ;-----------------------------------------------------------------------------
 ; Tile data
@@ -550,7 +552,7 @@ tilePainter:
     StringHi    " --[]-| "
     StringHi    "   ||   "
     StringQuote "   @@   "
-    .byte   $85,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $cd,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 ; filler
     StringHi    "        "
@@ -586,7 +588,7 @@ tilePainter2:
     StringHi    " --[]-/ "
     StringHi    "   ||   "
     StringQuote "   @@   "
-    .byte   $85,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $cd,$04,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 ; filler
     StringHi    "        "
