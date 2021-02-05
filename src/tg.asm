@@ -3324,9 +3324,9 @@ textPaintingFancy2:
     .byte   0
 
  textQueen6:
-    StringHi    "But you can"
+    StringHi    "You can take"
     .byte   $8d
-    StringHi    "take him home"
+    StringHi    "him home"
     .byte   $8d
     StringHi    "whenever you"
     .byte   $8d
