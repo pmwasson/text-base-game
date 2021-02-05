@@ -8,7 +8,9 @@ This is a tile-based game (Ultima-like) using the Apple 2 text mode for a contes
 
 ## Download
 
-You can grab the latest disk image here: https://github.com/pmwasson/text-base-game/raw/main/disk/askey_prodos.dsk
+You can grab the latest disk image for PRODOS: https://github.com/pmwasson/text-base-game/raw/main/disk/askey_prodos.dsk
+
+Or DOS 3.3: PRODOS: https://github.com/pmwasson/text-base-game/raw/main/disk/askey_dos33.do
 
 Requires an Apple IIe or better.
 
