@@ -266,11 +266,12 @@ bump:
     jsr     HOME
     jsr     inline_print
     .byte   "Thanks for playing!",13,13
-    .byte   "*C600G   -- reboot",13
-    .byte   "*3D0G    -- basic prompt (DOS 3.3 only)",13
-    .byte   "*C00G    -- restart Where's Askey",13
-    .byte   "*C0EG    -- continue Where's Askey",13,0
-    lda     #4
+    .byte   "Useful jump locations:",13,13
+    .byte   " C600G   -- reboot",13
+    .byte   " 3D0G    -- basic prompt (if loaded)",13
+    .byte   " C00G    -- restart Where's Askey",13
+    .byte   " C0EG    -- continue Where's Askey",13,0
+    lda     #8
     sta     CV
 
     ; clear out page $800 for basic
