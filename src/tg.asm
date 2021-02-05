@@ -254,11 +254,11 @@ bump:
     ; Even though all the state is zero, using separate LDAs so the
     ; state can be hacked from the monitor
 
-    lda     #1
-    sta     stateHammer     ; CHANGE TO ZERO
+    lda     #0
+    sta     stateHammer
     lda     #0
     sta     stateBridge
-    lda     #2              ; CHANGE TO ZERO
+    lda     #0
     sta     stateLetter
     lda     #0
     sta     stateFancy
@@ -1137,9 +1137,6 @@ LETTER_RIGHT = 38
     jmp     tile_print      ; link return
 
 .endproc
-
-; TODO - put tile code in new file
-; May be possible to load different tiles and code for different levels
 
 ;-----------------------------------------------------------------------------
 ; Tile handlers
@@ -2057,13 +2054,13 @@ letter:     .byte   0
 
 paintingTable:
     .word   dialogPainter
+    .word   dialogPaintingFixit
     .word   dialogPainter
-    .word   dialogPainter
-    .word   dialogPainter
-    .word   dialogPainter
+    .word   dialogPaintingForest
+    .word   dialogPaintingQueen
     .word   dialogPaintingPlayer
     .word   dialogPaintingFancy
-    .word   dialogPainter
+    .word   dialogPaintingGuard
 
 .endproc
 
@@ -2685,6 +2682,34 @@ dialogPaintingFancy:
             .word   textPaintingFancy2
             .byte   DIALOG_END
 
+dialogPaintingQueen:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingQueen1
+            .byte   DIALOG_LETTER
+            .word   textPaintingQueen2
+            .byte   DIALOG_END
+
+dialogPaintingGuard:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingGuard1
+            .byte   DIALOG_LETTER
+            .word   textPaintingGuard2
+            .byte   DIALOG_END
+
+dialogPaintingFixit:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingFixit1
+            .byte   DIALOG_LETTER
+            .word   textPaintingFixit2
+            .byte   DIALOG_END
+
+dialogPaintingForest:
+            .byte   DIALOG_THOUGHT
+            .word   textPaintingForest1
+            .byte   DIALOG_LETTER
+            .word   textPaintingForest2
+            .byte   DIALOG_END
+
 dialogPainter:
             .byte   DIALOG_TALK
             .word   textPainter
@@ -3199,22 +3224,15 @@ textPaintingPlayer1:
     .byte   0
 
 textPaintingPlayer2:
-    .byte   $8d,$20,$20
-    StringHi    "  /\      ////\\\\            "
-    .byte   $8d,$20,$20
-    StringHi    " //\\    /////\\\\\       /\  "
-    .byte   $8d,$20,$20
-    StringHi    "///\\\       ||    --    //\\ "
-    .byte   $8d,$20,$20
-    StringHi    "///\\\\      ||   (oo)  ///\\\"
-    .byte   $8d,$20,$20
-    StringHi    "  ||        __    -\/-    ||  "
-    .byte   $8d,$20,$20
-    StringHi    "  ||   \__()'`;  / || \       "
-    .byte   $8d,$20,$20
-    StringHi    "       /    /`     /\         "
-    .byte   $8d,$20,$20
-    StringHi    "       \\--\\     |  |        "
+    .byte   $8d
+    StringBlockReturn   "BB  /\      ////\\\\            "
+    StringBlockReturn   "BB //\\    /////\\\\\       /\  "
+    StringBlockReturn   "BB///\\\       ||    --    //\\ "
+    StringBlockReturn   "BB///\\\\      ||   (oo)  ///\\\"
+    StringBlockReturn   "BB  ||        __    -\/-    ||  "
+    StringBlockReturn   "BB  ||   \__()'`;  / || \       "
+    StringBlockReturn   "BB       /    /`     /\         "
+    StringBlock         "BB       \\--\\     |  |        "
     .byte   0
  
  textPaintingFancy1:
@@ -3225,22 +3243,15 @@ textPaintingPlayer2:
     .byte   0
 
 textPaintingFancy2:
-    .byte   $8d,$20,$20
-    StringHi    "      __(o)=                .."
-    .byte   $8d,$20,$20
-    StringHi    "      \___)    ..          ..."
-    .byte   $8d,$20,$20
-    StringHi    "        L     (oo)       ....."
-    .byte   $8d,$20,$20
-    StringHi    "      _      ( == )      _ ..."
-    .byte   $8d,$20,$20
-    StringHi    "   __(o)=    -/::\-    =(o)__ "
-    .byte   $8d,$20,$20
-    StringHi    "   \___)     {_--_}   . (___/ "
-    .byte   $8d,$20,$20
-    StringHi    "     L        I  I   ........."
-    .byte   $8d,$20,$20
-    StringHi    "                   ..........."    
+    .byte   $8d
+    StringBlockReturn   "BB      __(o)=                .."
+    StringBlockReturn   "BB      \___)    ..          ..."
+    StringBlockReturn   "BB        L     (oo)       ....."
+    StringBlockReturn   "BB      _      ( == )      _ ..."
+    StringBlockReturn   "BB   __(o)=    -/::\-    =(o)__ "
+    StringBlockReturn   "BB   \___)     {_--_}   . (___/ "
+    StringBlockReturn   "BB     L        I  I   ........."
+    StringBlock         "BB                   ..........."    
     .byte   0
  
  textPainter:
@@ -3320,6 +3331,89 @@ textPaintingFancy2:
     StringHi    "whenever you"
     .byte   $8d
     StringHi    "wish."
+    .byte   0
+
+ textPaintingQueen1:
+    .byte   $8d
+    StringHi    "   The Queen looks"
+    .byte   $8d
+    StringHi    "      fierce."
+    .byte   0
+
+textPaintingQueen2:
+    .byte   $8d
+    StringBlockReturn   "BB____   /            ^         "
+    StringBlockReturn   "BB    \ /       //\\  |     ____"
+    StringBlockReturn   "BB     \    __ //oo\\ |    /    "
+    StringBlockReturn   "BB      \_ |  |/({})\ | __/     "
+    StringBlockReturn   "BB ___     |  |-{__}--|         "
+    StringBlockReturn   "BB/   \     \/  {__}  |         "
+    StringBlockReturn   "BB     \_________II___|_________"
+    StringBlock         "BB     /                        "    
+    .byte   0
+
+ textPaintingGuard1:
+    .byte   $8d
+    StringHi    "  The guard looks"
+    .byte   $8d
+    StringHi    "  cute with his"
+    .byte   $8d
+    StringHi    "  daughter."
+    .byte   0
+
+textPaintingGuard2:
+    .byte   $8d
+    StringBlockReturn   "BB      ,_                      "
+    StringBlockReturn   "BB     (..)       ####          "
+    StringBlockReturn   "BB  @  (__) @    #(..)#      @  "
+    StringBlockReturn   "BB  |  /[]\_|~  ##(==)##  @  |  "
+    StringBlockReturn   "BB    / []       /{__}\   |     "
+    StringBlockReturn   "BB @    ||   @     II        @  "
+    StringBlockReturn   "BB\|/       `|~        @    '|~ "    
+    StringBlock         "BB |                   |        "
+    .byte   0
+
+
+ textPaintingFixit1:
+    .byte   $8d
+    StringHi    "  Mr. Fixit and"
+    .byte   $8d
+    StringHi    "  his son make a"
+    .byte   $8d
+    StringHi    "  good team."
+    .byte   0
+
+textPaintingFixit2:
+    .byte   $8d
+    StringBlockReturn   "BB                              "
+    StringBlockReturn   "BB     ___--==                  "
+    StringBlockReturn   "BB    [_ _}(..)    __  ___      "
+    StringBlockReturn   "BB      I  (__)   (oo){_ _]     "
+    StringBlockReturn   "BB      I__/{}\   (==)  I       "
+    StringBlockReturn   "BB      I   {} \__{__}--I       "
+    StringBlockReturn   "BB          /\     II   I       "    
+    StringBlock         "BB                              "
+    .byte   0
+
+ textPaintingForest1:
+    .byte   $8d
+    StringHi    "  So that is Mr."
+    .byte   $8d
+    StringHi    "  Zip hanging out"
+    .byte   $8d
+    StringHi    "  with Forest"
+    .byte   0
+
+textPaintingForest2:
+    .byte   $8d
+    StringBlockReturn   "BB  /\     -==--                "
+    StringBlockReturn   "BB //\\    (oo)     ####      /\"
+    StringBlockReturn   "BB///\\\   (__)     [oo]     //\"
+    StringBlockReturn   "BB  ||   /\/        (==)    ///\"
+    StringBlockReturn   "BB  ||    /\/BBB   -{__}-  ////\"
+    StringBlockReturn   "BB       /\         {__}      ||"
+    StringBlockReturn   "BB      /  \/        II       ||"    
+    StringBlock         "BB     \                        "
     .byte   0
 
 ;-----------------------------------------------------------------------------

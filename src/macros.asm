@@ -44,10 +44,10 @@
         .byte   13
 .endmacro
 
-; Converts @ to inverse-space and % to inverse _
+; Converts B to inverse-space and % to inverse _
 .macro  StringBlock s
         .repeat .strlen(s), I
-        .if(.strat(s,I) = '@')
+        .if(.strat(s,I) = 'B')
         .byte ' '
         .elseif(.strat(s,I) = '%')
         .byte '_' & $1f
@@ -55,4 +55,10 @@
         .byte   .strat(s, I) | $80
         .endif
         .endrep
+.endmacro
+
+; also adds a return to the end of each line
+.macro  StringBlockReturn s
+        StringBlock s
+        .byte   $8d
 .endmacro

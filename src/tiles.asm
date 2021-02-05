@@ -591,10 +591,10 @@ tileForest:
 tileQueen:
     StringBlock "# //\\ #"
     StringBlock "|//oo\\|"
-    StringBlock "@/({})\@"
-    StringBlock "@-{__}-@"
-    StringBlock "@\{__}/@"
-    StringBlock "@@@II@@@"
+    StringBlock "B/({})\B"
+    StringBlock "B-{__}-B"
+    StringBlock "B\{__}/B"
+    StringBlock "BBBIIBBB"
     .byte   $d5,$71,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileJR:
@@ -627,10 +627,10 @@ tileForest2:
 tileQueen2:
     StringBlock "# //\\ #"
     StringBlock "|//oo\\|"
-    StringBlock "@/(==)\@"
-    StringBlock "@-{__}-@"
-    StringBlock "@\{__}/@"
-    StringBlock "@@@II@@@"
+    StringBlock "B/(==)\B"
+    StringBlock "B-{__}-B"
+    StringBlock "B\{__}/B"
+    StringBlock "BBBIIBBB"
     .byte   $d5,$31,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileJR2:
@@ -898,8 +898,8 @@ tileWallPainting:
 
 tileEasel:
     StringBlock " _____  "
-    StringBlock " @@@@@  "
-    StringBlock " @@@@@  "
+    StringBlock " BBBBB  "
+    StringBlock " BBBBB  "
     StringBlock " %%%%%  "
     StringBlock " | | |  "
     StringBlock " |   |  "
