@@ -73,6 +73,8 @@ tileVaseBrokenId    =   (tileVaseBroken         - tileSheet) / TILE_SIZE
 
 tileMailBox2Id      =   (tileMailBox2           - tileSheet) / TILE_SIZE
 
+tileCarpetFancyId   =   (tileCarpetFancy        - tileSheet) / TILE_SIZE
+
 ; Player starting location
 START_X         = 2  
 START_Y         = 3
@@ -252,11 +254,11 @@ bump:
     ; Even though all the state is zero, using separate LDAs so the
     ; state can be hacked from the monitor
 
-    lda     #0
-    sta     stateHammer
+    lda     #1
+    sta     stateHammer     ; CHANGE TO ZERO
     lda     #0
     sta     stateBridge
-    lda     #0
+    lda     #2              ; CHANGE TO ZERO
     sta     stateLetter
     lda     #0
     sta     stateFancy
@@ -1295,9 +1297,9 @@ nextX:      .byte   0
 
 signTable:
     .word   signFancy
-    .word   signDefault
+    .word   signCastle
     .word   signTrail
-    .word   signDefault
+    .word   signGallery
     .word   signDefault
     .word   signDefault
     .word   signDefault
@@ -1326,6 +1328,20 @@ signTrail:
     StringInv   " FOREST"
     .byte   $8d
     StringInv   " TRAIL"
+    .byte   0
+
+signCastle:
+    .byte   $8d
+    StringInv   "  THE"
+    .byte   $8d
+    StringInv   " CASTLE"
+    .byte   0
+
+signGallery:
+    .byte   $8d
+    StringInv   "PORTRAIT"
+    .byte   $8d
+    StringInv   "GALLERY"
     .byte   0
 
 .endproc
@@ -1377,14 +1393,113 @@ on_door:
     jsr     tile_adjacent
     bcc     :+
 
+    ; if state is set, and dialog is done, open the gate
+    lda     state
+    beq     :+
+    ldy     #0
+    lda     (dialogPtr0),y
+    bne     :+
+
+    lda     #2
+    sta     stateCastle
+    jsr     sound_pickup
+    lda     #0
+    sta     state
+:
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    beq     :+
+    rts
+:
+    lda     stateCastle
+    beq     block
+
+    ; if castle state is one, open gate after dialog
+    cmp     #1
+    bne     :+
+    lda     #1
+    sta     state
+:
+
+    ; set up dialog
+    ldx     #<dialogGuardAllow
+    ldy     #>dialogGuardAllow
+    jmp     set_dialog          ; link return
+
+
+block:
+    ; set up dialog
+    ldx     #<dialogGuardBlock
+    ldy     #>dialogGuardBlock
+    jmp     set_dialog          ; link return
+
+
+state:  .byte   0
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_gate
+;-----------------------------------------------------------------------------
+.proc tile_handler_gate
+
+    jsr     tile_handler_coord
+
+    ; if castle is set, erase gate and change cache
+    lda     stateCastle
+    cmp     #2  ; wait until you talk to the guard
+    beq     :+
+    rts         ; gate is shut
+:
+
+    lda     #tileCarpetFancyId
+    jsr     draw_tile
+
+    ldy     mapCacheIndex
+    lda     #0
+    sta     mapCache,y  ; make non-blocking for movement
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_sis
+;-----------------------------------------------------------------------------
+.proc tile_handler_sis
+    jsr     tile_adjacent
+    bcc     :+
+
     ; check if hit action key
     lda     lastKey
     cmp     #KEY_WAIT
     bne     :+
 
     ; set up dialog
-    ldx     #<dialogGuard
-    ldy     #>dialogGuard
+    ldx     #<dialogSis
+    ldy     #>dialogSis
+    jsr     set_dialog
+:
+    rts
+
+.endproc
+
+;-----------------------------------------------------------------------------
+; tile_handler_queen
+;-----------------------------------------------------------------------------
+.proc tile_handler_queen
+    jsr     tile_adjacent
+    bcc     :+
+
+    ; check if hit action key
+    lda     lastKey
+    cmp     #KEY_WAIT
+    bne     :+
+
+    ; set up dialog
+    ldx     #<dialogQueen
+    ldy     #>dialogQueen
     jsr     set_dialog
 :
     rts
@@ -1714,6 +1829,9 @@ state:  .byte 0
     bne     :+
     lda     #1
     sta     stateBridge
+    jsr     sound_pickup
+    lda     #0
+    sta     state   ; only play sound once
 :
 
     jsr     tile_adjacent
@@ -1923,8 +2041,8 @@ letter:     .byte   0
     cmp     #KEY_WAIT
     bne     :+
 
-    ; painting based on Y cord
-    lda     specialY
+    ; painting based on X cord
+    lda     specialX
     and     #PAINTING_COUNT-1
     asl     ; multiply by 2
     tay
@@ -1936,6 +2054,16 @@ letter:     .byte   0
     jsr     set_dialog
 :
     rts
+
+paintingTable:
+    .word   dialogPainter
+    .word   dialogPainter
+    .word   dialogPainter
+    .word   dialogPainter
+    .word   dialogPainter
+    .word   dialogPaintingPlayer
+    .word   dialogPaintingFancy
+    .word   dialogPainter
 
 .endproc
 
@@ -2374,11 +2502,18 @@ dialogJr:
             .word   textJr3
             .byte   DIALOG_END
 
-dialogGuard:
+dialogGuardBlock:
             .byte   DIALOG_TALK
-            .word   textGuard1
+            .word   textGuardBlock1
             .byte   DIALOG_TALK
-            .word   textGuard2
+            .word   textGuardBlock2
+            .byte   DIALOG_END
+
+dialogGuardAllow:
+            .byte   DIALOG_TALK
+            .word   textGuardAllow1
+            .byte   DIALOG_TALK
+            .word   textGuardAllow2
             .byte   DIALOG_END
 
 dialogDoor: 
@@ -2555,6 +2690,28 @@ dialogPainter:
             .word   textPainter
             .byte   DIALOG_END
 
+dialogSis:
+            .byte   DIALOG_TALK
+            .word   textSis1
+            .byte   DIALOG_TALK
+            .word   textSis2
+            .byte   DIALOG_END
+
+dialogQueen:
+            .byte   DIALOG_THOUGHT
+            .word   textQueen1
+            .byte   DIALOG_TALK
+            .word   textQueen2
+            .byte   DIALOG_TALK
+            .word   textQueen3
+            .byte   DIALOG_TALK
+            .word   textQueen4
+            .byte   DIALOG_TALK
+            .word   textQueen5
+            .byte   DIALOG_TALK
+            .word   textQueen6
+            .byte   DIALOG_END
+
 ; Standard dialog boxes are 14 wide and 4 high
 ;   --------------
 ;   --------------
@@ -2567,7 +2724,7 @@ dialogPainter:
 ;   --------------------
 ;   --------------------
 ;
-; Letters are 34 wide and 10 high
+; Letters/painting are 34 wide and 10 high
 ;
 ;   ---------------------------------- 
 ;   ---------------------------------- 
@@ -2580,7 +2737,7 @@ dialogPainter:
 ; Use CR with upper bit set ($8D) to go to the next line.
 
 
-; Guard
+; Intro
 
 textInit:
     .byte   $8d
@@ -2588,17 +2745,40 @@ textInit:
     StringHi    "  Where's Askey's?"
     .byte   0
 
-textGuard1:
+; Guard
+
+textGuardBlock1:
     .byte   $8d
+    StringHi    " No one can"
     .byte   $8d
-    StringHi    "     Hi!"
+    StringHi    " enter the"
+    .byte   $8d
+    StringHi    " castle"
     .byte   0
 
-textGuard2:
+textGuardBlock2:
+    StringHi    " without"
     .byte   $8d
-    StringHi    "    How's"
+    StringHi    " permission"
     .byte   $8d
-    StringHi    "  it going?"
+    StringHi    " from the"
+    .byte   $8d
+    StringHi    " Queen."
+    .byte   0
+
+textGuardAllow1:
+    .byte   $8d
+    StringHi    "I see you have"
+    .byte   $8d
+    StringHi    "a letter from"
+    .byte   $8d
+    StringHi    "the Queen."
+    .byte   0
+
+textGuardAllow2:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "   Go on in."
     .byte   0
 
 ; Dog House
@@ -2985,7 +3165,6 @@ textFancySentLetter2:
 
 textMailboxPlayer1:
     .byte   $8d
-    .byte   $8d
     StringHi    "  It's a letter from"
     .byte   $8d
     StringHi    "    the Queen!"
@@ -3064,7 +3243,6 @@ textPaintingFancy2:
     StringHi    "                   ..........."    
     .byte   0
  
-
  textPainter:
     .byte   $8d
     StringHi    " I'm working"
@@ -3074,20 +3252,75 @@ textPaintingFancy2:
     StringHi    " masterpiece!"
     .byte   0
 
-;-----------------------------------------------------------------------------
-; Painting lookup
-;-----------------------------------------------------------------------------
+ textSis1:
+    .byte   $8d
+    StringHi    "I want to be"
+    .byte   $8d
+    StringHi    "just like the"
+    .byte   $8d
+    StringHi    "Queen and"
+    .byte   0
 
-paintingTable:
-    .word   dialogPaintingFancy
-    .word   dialogPaintingFancy
-    .word   dialogPaintingPlayer
-    .word   dialogPaintingFancy
-    .word   dialogPaintingFancy
-    .word   dialogPaintingFancy
-    .word   dialogPaintingFancy
-    .word   dialogPaintingFancy
+ textSis2:
+    .byte   $8d
+    StringHi    " write a lot"
+    .byte   $8d
+    StringHi    " of letters!"
+    .byte   0
 
+ textQueen1:
+    .byte   $8d
+    StringHi    "      Gulp!"
+    .byte   $8d
+    StringHi    " I'm talking to the"
+    .byte   $8d
+    StringHi    "      Queen!"
+    .byte   0
+
+ textQueen2:
+    .byte   $8d
+    .byte   $8d
+    StringHi    "I see you got"
+    .byte   $8d
+    StringHi    "my letter."
+    .byte   0
+
+ textQueen3:
+    .byte   $8d
+    StringHi    " Your dog is"
+    .byte   $8d
+    StringHi    " in the"
+    .byte   $8d
+    StringHi    " garden,"
+    .byte   0
+
+ textQueen4:
+    .byte   $8d
+    StringHi    "just past the"
+    .byte   $8d
+    StringHi    "   portait"
+    .byte   $8d
+    StringHi    "   gallery."
+    .byte   0
+
+ textQueen5:
+    .byte   $8d
+    StringHi    " My artist"
+    .byte   $8d
+    StringHi    " is painting"
+    .byte   $8d
+    StringHi    " him."
+    .byte   0
+
+ textQueen6:
+    StringHi    "But you can"
+    .byte   $8d
+    StringHi    "take him home"
+    .byte   $8d
+    StringHi    "whenever you"
+    .byte   $8d
+    StringHi    "wish."
+    .byte   0
 
 ;-----------------------------------------------------------------------------
 ; Count down
@@ -3099,85 +3332,101 @@ paintingTable:
 timerText:
 
 .align 16
+textCount10:
     .byte       $8d
     StringHi   " Ten!"
     .byte       0
 
 .align 16
+textCount9:
     .byte       $8d
     StringHi   "Nine!"
     .byte       0
 
 .align 16
+textCount8:
     .byte       $8d
     StringHi   "Eight!"
     .byte       0
 
 .align 16
+textCount7:
     .byte       $8d
     StringHi   "Seven!"
     .byte       0
 
 .align 16
+textCount6h:
     StringHi   "Six &"
     .byte       $8d
     StringHi   "a half"
     .byte       0
 
 .align 16
+textCount6:
     .byte       $8d
     StringHi   " Six!"
     .byte       0
 
 .align 16
+textCount5:
     .byte       $8d
     StringHi   " Five!"
     .byte       0
 
 .align 16
+textCount4:
     .byte       $8d
     StringHi   " Four!"
     .byte       0
 
 .align 16
+textCount4a:
     StringHi   "Four"
     .byte       $8d
     StringHi   "again!"
     .byte       0
 
 .align 16
+textCount3:
     .byte       $8d
     StringHi   "Three!"
     .byte       0
 
 .align 16
+textCount2h:
     StringHi   "Two &"
     .byte       $8d
     StringHi   "a half"
     .byte       0
 
 .align 16
+textCount2:
     .byte       $8d
     StringHi   " Two!"
     .byte       0
 
 .align 16
+textCount1:
     .byte       $8d
     StringHi   " One!"
     .byte       0
 
 .align 16
+textCount0:
     .byte       $8d
     StringHi   "Zero!!"
     .byte       0
 
 .align 16
+textCount00:
     StringHi   "Times"
     .byte       $8d
     StringHi   " up!"
     .byte       0
 
 .align 16
+textCount000:
     StringHi   " Too"
     .byte       $8d
     StringHi   " bad."

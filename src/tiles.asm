@@ -60,7 +60,12 @@ tile_jump_table:
     nop
     jmp     tile_handler_painter            ; $cc
     nop
-
+    jmp     tile_handler_sis                ; $d0
+    nop
+    jmp     tile_handler_queen              ; $d4
+    nop
+    jmp     tile_handler_gate               ; $d8
+    nop
 ;-----------------------------------------------------------------------------
 ; Tile data
 ;-----------------------------------------------------------------------------
@@ -108,12 +113,13 @@ tileBoardwalkH:
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileBoardwalkV:
-    StringHi    "|_|  | |"
-    StringHi    "| |  |_|"
-    StringHi    "| |__| |"
-    StringHi    "|_|  | |"
-    StringHi    "| |  |_|"
-    StringHi    "| |__| |"
+    StringHi    "|______|"
+    StringHi    "|___|__|"
+    StringHi    "|______|"
+    StringHi    "|__|___|"
+    StringHi    "|______|"
+    StringHi    "|___|__|"
+
     .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileCarpet:
@@ -144,7 +150,52 @@ tileForestMarker:
     .byte   $bc,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 
-    .res    64*(16 - 8)
+tileBoardwalkHL:
+    StringHi    " _______"
+    StringHi    "|___|___"
+    StringHi    "|_______"
+    StringHi    "|__|____"
+    StringHi    "|______|"
+    StringHi    "|___|___"
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+
+tileBoardwalkHR:
+    StringHi    "_______ "
+    StringHi    "____|__|"
+    StringHi    "|______|"
+    StringHi    "___|___|"
+    StringHi    "_______|"
+    StringHi    "____|__|"
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+
+tileBoardwalkHLL:
+    StringHi    "|______|"
+    StringHi    "|___|___"
+    StringHi    "|_______"
+    StringHi    "|__|____"
+    StringHi    "|______|"
+    StringHi    "|___|___"
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+
+tileBoardwalkHU:
+    StringHi    "|______|"
+    StringHi    "____|___"
+    StringHi    "|_______"
+    StringHi    "___|____"
+    StringHi    "_______|"
+    StringHi    "____|___"
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+
+tileBoardwalkVU:
+    StringHi    " ______ "
+    StringHi    "|___|__|"
+    StringHi    "|______|"
+    StringHi    "|__|___|"
+    StringHi    "|______|"
+    StringHi    "|___|__|"
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+
+    .res    64*(16 - 13)
 
 ; 16 .. 23  barriers
 
@@ -329,7 +380,25 @@ tileMailBox2:
     StringHi    "   ,||. " 
     .byte   $a9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
 
-    .res    64*(8 - 6)
+tileWelcome:
+    StringHi    "        " 
+    StringInv   "--------"                    
+    StringInv   "WELCOME!"                    
+    StringInv   "--------"                    
+    StringHi    "        "                    
+    StringHi    "        " 
+    .byte   0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ;
+
+tileGate:
+    StringHi    " ^  ^  ^" 
+    StringHi    " |  |  |"                    
+    StringHi    " |  |  |"                    
+    StringHi    " |  |  |"                    
+    StringHi    " |  |  |"                    
+    StringHi    " v  v  v" 
+    .byte   $d9,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; block (for now)
+
+    .res    64*(8 - 8)
 
 ; 48 .. 63 Decorations (Indoors)
 
@@ -396,7 +465,44 @@ tileBed2:
     StringHi    "   ||   "
     .byte   $b1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0    ; blocking
 
-    .res    64*(16 - 7)
+
+tileBigTableL:
+    StringHi    "  ______"
+    StringHi    " /      "
+    StringHi    "'======="
+    StringHi    " |UUUUUU"
+    StringHi    " |      "
+    StringHi    "        "
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+
+tileBigTableM:
+    StringHi    "________"
+    StringHi    "        "
+    StringHi    "========"
+    StringHi    "UUU|UUUU"
+    StringHi    "   |    "
+    StringHi    "        "
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+
+tileBigTableR:
+    StringHi    "________"
+    StringHi    "       /"
+    StringHi    "======'|"
+    StringHi    "UUUUU| |"
+    StringHi    "     |  "
+    StringHi    "        "
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+
+tileMailBag:
+    StringHi    "        "
+    StringHi    "   )(   "
+    StringHi    "  /  \  "
+    StringHi    " (MAIL) "
+    StringHi    "  \__/  "
+    StringHi    "        "
+    .byte   1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; blocking
+
+    .res    64*(16 - 11)
 
 ; 64 .. 95 People
 
@@ -489,7 +595,7 @@ tileQueen:
     StringBlock "@-{__}-@"
     StringBlock "@\{__}/@"
     StringBlock "@@@II@@@"
-    .byte   $85,$71,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $d5,$71,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileJR:
     StringHi    "        "
@@ -507,7 +613,7 @@ tileSis:
     StringHi    "##(==)##"
     StringHi    " /{__}\ "
     StringHi    "   II   "
-    .byte   $85,$12,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $d1,$12,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileForest2:
     StringHi    "  ####  "
@@ -525,7 +631,7 @@ tileQueen2:
     StringBlock "@-{__}-@"
     StringBlock "@\{__}/@"
     StringBlock "@@@II@@@"
-    .byte   $85,$31,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $d5,$31,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tileJR2:
     StringHi    "        "
@@ -543,7 +649,7 @@ tileSis2:
     StringHi    "##(==)##"
     StringHi    " /{__}\ "
     StringHi    "   II   "
-    .byte   $85,$22,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
+    .byte   $d1,$22,0,0,0,0,0,0,0,0,0,0,0,0,0,0     ; free-movement
 
 tilePainter:
     StringHi    "   /\   "
