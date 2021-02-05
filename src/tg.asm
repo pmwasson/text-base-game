@@ -88,16 +88,29 @@ SIGN_COUNT      = 8     ; Max number of signs (must be power of 2)
 ; Zero page usage
 ;------------------------------------------------
 
-tilePtr0    :=  $50     ; Tile pointer
-tilePtr1    :=  $51
-screenPtr0  :=  $52     ; Screen pointer
-screenPtr1  :=  $53
-mapPtr0     :=  $54     ; Map pointer
-mapPtr1     :=  $55
-textPtr0    :=  $56     ; Text pointer
-textPtr1    :=  $57
-dialogPtr0  :=  $58     ; Dialog chain pointer
-dialogPtr1  :=  $59
+; Safe zero page locations from Inside the Apple IIe:
+;
+;                         $06 $07 
+; $08 $09
+;     $19 $1A $1B $1C $1D $1E
+;                         $CE $CF
+;                             $D7
+;             $E3
+; $E8 
+;                 $EC $ED $EE $EF
+;         $FA $FB $FC $FD $FE $FF 
+;
+
+tilePtr0    :=  $06     ; Tile pointer
+tilePtr1    :=  $07
+screenPtr0  :=  $08     ; Screen pointer
+screenPtr1  :=  $09
+mapPtr0     :=  $1A     ; Map pointer
+mapPtr1     :=  $1B
+textPtr0    :=  $1C     ; Text pointer
+textPtr1    :=  $1D
+dialogPtr0  :=  $CE     ; Dialog chain pointer
+dialogPtr1  :=  $CF
 
 .segment "CODE"
 .org    $C00
@@ -211,18 +224,18 @@ movement_mode:
     ;------------------
     ; Quit
     ;------------------
-
-    ; TODO - add a dialog so don't quit by accident
-    ; TODO - make this exit cleanly for DOS 3.3
-
     cmp     #KEY_QUIT
     bne     :+
-    lda     #23
-    sta     CV          ; Make sure cursor is on the bottom row         
-    sta     LOWSCR      ; Make sure exit onto screen 1
-    jmp     MONZ
-:
 
+    ; set quit dialog and set quit flag
+    ; Initial dialog
+    ldx     #<dialogQuit
+    ldy     #>dialogQuit
+    jsr     set_dialog
+
+    lda     #1
+    sta     stateQuit
+:
     ;--------------------------
     ; Time-out or unmapped key
     ;--------------------------
@@ -235,6 +248,40 @@ bump:
 
 .endproc
 
+;-----------------------------------------------------------------------------
+; quit_game
+;-----------------------------------------------------------------------------
+
+.proc quit_game   
+
+    lda     #0
+    sta     stateQuit   ; clear quit mode incase player want to restart
+
+    ; also reset dialog so don't get quit again
+    ldx     #<dialogNone
+    ldy     #>dialogNone
+    jsr     set_dialog
+
+    sta     LOWSCR      ; Make sure exit onto screen 1
+    jsr     HOME
+    jsr     inline_print
+    .byte   "Thanks for playing!",13,13
+    .byte   "*C600G   -- reboot",13
+    .byte   "*3D0G    -- basic prompt (DOS 3.3 only)",13
+    .byte   "*C00G    -- restart Where's Askey",13
+    .byte   "*C0EG    -- continue Where's Askey",13,0
+    lda     #4
+    sta     CV
+
+    ; clear out page $800 for basic
+    ldx     #0
+    lda     #0
+:    
+    sta     $800,x
+    inx
+    bne     :-
+    jmp     MONZ
+.endproc
 
 ;-----------------------------------------------------------------------------
 ; reset
@@ -254,6 +301,8 @@ bump:
     ; Even though all the state is zero, using separate LDAs so the
     ; state can be hacked from the monitor
 
+    lda     #0
+    sta     stateQuit
     lda     #0
     sta     stateHammer
     lda     #0
@@ -561,7 +610,7 @@ thought:
 next_dialog:
     lda     dialogKey
     cmp     #KEY_WAIT
-    bne     flipPage
+    bne     :+
 
     ; go to next dialog
     clc
@@ -575,6 +624,20 @@ next_dialog:
     ; reset sound
     lda     #0
     sta     dialogSound
+
+    ; didn't quit
+    sta     stateQuit
+
+    jmp     flipPage
+
+:
+    cmp     #KEY_QUIT
+    bne     :+
+    lda     stateQuit
+    beq     :+
+    jmp     quit_game
+
+:   
 
     ; Set display page
     ;-------------------------------------------------------------------------
@@ -2394,6 +2457,7 @@ stateMarker:    .byte  0
 stateLetter:    .byte  0
 stateFancy:     .byte  0
 stateCastle:    .byte  0
+stateQuit:      .byte  0
 
 ; Lookup tables
 ;-----------------------------------------------------------------------------
@@ -2480,9 +2544,17 @@ DIALOG_TALK =       1
 DIALOG_THOUGHT =    2
 DIALOG_LETTER =     3
 
+dialogNone:
+            .byte   DIALOG_END
+
 dialogInit: 
             .byte   DIALOG_THOUGHT
             .word   textInit
+            .byte   DIALOG_END
+
+dialogQuit: 
+            .byte   DIALOG_THOUGHT
+            .word   textQuit
             .byte   DIALOG_END
 
 dialogPortrait: 
@@ -2766,8 +2838,22 @@ dialogQueen:
 
 textInit:
     .byte   $8d
+    StringQuote "  @Where's Askey?@ "
     .byte   $8d
-    StringHi    "  Where's Askey?"
+    StringHi    "   Press SPACE to"
+    .byte   $8d
+    StringHi    "   begin."
+    .byte   0
+
+; Quit
+
+textQuit:
+    .byte   $8d
+    StringHi    " To quit, press ESC"
+    .byte   $8d
+    StringHi    " again. Press SPACE"
+    .byte   $8d
+    StringHi    " to keep playing."
     .byte   0
 
 ; Guard
