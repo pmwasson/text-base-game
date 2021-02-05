@@ -3033,7 +3033,7 @@ textForestWon3:
 
 textPortrait:
     .byte   $8d
-    StringHi    "What a hansome boy!"
+    StringHi    "  What a good boy!"
     .byte   $8d
     StringHi    "  (Press ESC to"
     .byte   $8d
@@ -3121,10 +3121,10 @@ textFancyLetter3:
     .byte   $8d
     StringInv   "MORNING WALK, I FOUND A LOST DOG"
     .byte   $8d
-    StringInv   "DO YOU KNOWN WHOS IT COULD BE?"
+    StringInv   "DO YOU KNOW WHOS IT COULD BE?"
     .byte   $8d
     .byte   $8d
-    StringInv   "SINCERLY YOURS,"
+    StringInv   "SINCERELY YOURS,"
     .byte   $8d
     StringInv   "THE QUEEN"
     .byte   0
@@ -3210,7 +3210,7 @@ textMailboxPlayer2:
     StringInv   "LET YOU INTO THE CASTLE."
     .byte   $8d
     .byte   $8d
-    StringInv   "SINCERLY YOURS,"
+    StringInv   "SINCERELY YOURS,"
     .byte   $8d
     StringInv   "THE QUEEN"
     .byte   0
@@ -3309,7 +3309,7 @@ textPaintingFancy2:
     .byte   $8d
     StringHi    "just past the"
     .byte   $8d
-    StringHi    "   portait"
+    StringHi    "   portrait"
     .byte   $8d
     StringHi    "   gallery."
     .byte   0
@@ -3401,7 +3401,7 @@ textPaintingFixit2:
     .byte   $8d
     StringHi    "  Zip hanging out"
     .byte   $8d
-    StringHi    "  with Forest"
+    StringHi    "  with Forest."
     .byte   0
 
 textPaintingForest2:
