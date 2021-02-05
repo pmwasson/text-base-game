@@ -2767,7 +2767,7 @@ dialogQueen:
 textInit:
     .byte   $8d
     .byte   $8d
-    StringHi    "  Where's Askey's?"
+    StringHi    "  Where's Askey?"
     .byte   0
 
 ; Guard
@@ -2866,7 +2866,7 @@ textJr3:
 textFixerInit1:
     StringHi    "I came to fix"
     .byte   $8d
-    StringHi    "the bridge."
+    StringHi    "the bridge,"
     .byte   $8d
     StringHi    "but I lost my"
     .byte   $8d
@@ -3026,7 +3026,7 @@ textForestWon2:
 
 textForestWon3:
     .byte   $8d
-    StringHi    " Your faster"
+    StringHi    "You're faster"
     .byte   $8d
     StringHi    "than Mr. Zip!"
     .byte   0
@@ -3119,9 +3119,9 @@ textFancyLetter3:
     .byte   $8d
     StringInv   "I HOPE YOU ARE DOING WELL. ON MY"
     .byte   $8d
-    StringInv   "MORNING WALK, I FOUND A LOST DOG"
+    StringInv   "MORNING WALK, I FOUND A LOST DOG."
     .byte   $8d
-    StringInv   "DO YOU KNOW WHOS IT COULD BE?"
+    StringInv   "DO YOU KNOW WHOSE IT COULD BE?"
     .byte   $8d
     .byte   $8d
     StringInv   "SINCERELY YOURS,"
@@ -3156,7 +3156,7 @@ textFancyNoPen2:
 
 textFancyPen1:
     .byte   $8d
-    StringHi    "Thank-you"
+    StringHi    "Thank you"
     .byte   $8d
     StringHi    "for the pen."
     .byte   0
@@ -3220,7 +3220,7 @@ textPaintingPlayer1:
     .byte   $8d
     StringHi    "  It's a picture of"
     .byte   $8d
-    StringHi    "   me and Askey"
+    StringHi    "   me and Askey."
     .byte   0
 
 textPaintingPlayer2:
