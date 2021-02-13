@@ -16,7 +16,7 @@ Requires an Apple IIe or better.
 
 ## Play in a browser
 
-I've upload a version to the Internet Archive, allowing it to be played online using their emulator:
+I've upload a version to the Internet Archive, allowing it to be played online using their online emulator:
 https://archive.org/details/askey_prodos
 
 ## Instructions
