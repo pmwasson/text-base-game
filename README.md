@@ -14,6 +14,11 @@ Or DOS 3.3: https://github.com/pmwasson/text-base-game/raw/main/disk/askey_dos33
 
 Requires an Apple IIe or better.
 
+## Play in a browser
+
+I've upload a version to the Internet Archive, allowing it to be played online using their emulator:
+https://archive.org/details/askey_prodos
+
 ## Instructions
 
 Instructions including in the basic HELLO program:
