@@ -59,4 +59,4 @@ Where's Askey was entered in Roby Sherman's Apple II Software Enthusiast text ba
 
 Thanks Roby for organizing the contest and to all the other participants for making it so enjoyable.
 
-You can find all the entries here: https://www.crowcousins.com/newer-exhibitions.html
+You can find all the entries here: https://crowcousins.com/a2se-programming-challenges/
